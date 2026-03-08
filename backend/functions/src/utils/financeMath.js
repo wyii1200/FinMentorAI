@@ -46,6 +46,77 @@ const calculateSpendingMetrics = ({ income, expenses, bnpl, savings }) => {
   };
 };
 
+//future simulator (Feature 2) 
+const computeFutureSimulation = ({ scenarioType, income, amount, months, interestRate = 0, existingSavings = 0 }) => {
+  const monthlyRate = interestRate / 100 / 12;
+  
+  let debtProjection = [];
+  let savingsProjection = [];
+  let interestPaid = 0;
+  let totalDebtPaid = 0;
+
+  // Debt projection (BNPL scenario)
+  if (scenarioType === 'bnpl' || scenarioType === 'both') {
+    let balance = amount;
+    const monthlyPayment = monthlyRate > 0
+      ? (amount * monthlyRate) / (1 - Math.pow(1 + monthlyRate, -months))
+      : amount / months;
+
+    for (let i = 1; i <= months; i++) {
+      const interestCharge = balance * monthlyRate;
+      interestPaid += interestCharge;
+      balance = Math.max(0, balance - monthlyPayment + interestCharge);
+      debtProjection.push({ month: i, balance: round(balance), payment: round(monthlyPayment) });
+    }
+    totalDebtPaid = round(amount + interestPaid);
+  }
+
+  // Savings projection (savings scenario)
+  if (scenarioType === 'savings' || scenarioType === 'both') {
+    const annualRate = 0.04; // 4% annual return (conservative EPF-like)
+    const monthlyGrowthRate = annualRate / 12;
+    let balance = existingSavings;
+
+    for (let i = 1; i <= months; i++) {
+      balance = balance * (1 + monthlyGrowthRate) + amount;
+      savingsProjection.push({ month: i, balance: round(balance) });
+    }
+  }
+
+  // Emergency fund score
+  const finalSavings = savingsProjection.length > 0
+    ? savingsProjection[savingsProjection.length - 1].balance
+    : existingSavings;
+  const monthlyExpenses = income * 0.7; // estimate 70% of income as expenses
+  const emergencyScore = round(finalSavings / (monthlyExpenses || 1));
+
+  // Risk level
+  let riskLevel;
+  if (scenarioType === 'bnpl') {
+    const overpaidPercent = amount > 0 ? (interestPaid / amount) * 100 : 0;
+    riskLevel = overpaidPercent > 20 ? 'High' : overpaidPercent > 10 ? 'Medium' : 'Low';
+  } else {
+    riskLevel = emergencyScore >= 6 ? 'Low' : emergencyScore >= 3 ? 'Medium' : 'High';
+  }
+
+  // Chart data formatted for frontend
+  const chartData = Array.from({ length: months }, (_, i) => ({
+    month: i + 1,
+    debt: debtProjection[i]?.balance ?? null,
+    savings: savingsProjection[i]?.balance ?? null,
+  }));
+
+  return {
+    debtProjection,
+    savingsProjection,
+    emergencyScore,
+    interestPaid: round(interestPaid),
+    netWorthDelta: round(finalSavings - totalDebtPaid),
+    riskLevel,
+    chartData,
+  };
+};
+
 
 /**
  * BNPL / Loan cost breakdown (Feature 3)
@@ -173,5 +244,5 @@ function round(n) {
   return Math.round(n * 100) / 100;
 }
 
-module.exports = {calculateSpendingMetrics, computeBNPL, computeResilience };
+module.exports = {calculateSpendingMetrics,computeFutureSimulation, computeBNPL, computeResilience };
 

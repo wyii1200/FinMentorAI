@@ -23,6 +23,20 @@ const validateSpendingInput = ({ income, expenses, bnpl, savings }) => {
   return null; // no error
 };
 
+//feature 2
+const validateSimulationInput = ({ scenarioType, income, amount, months }) => {
+  if (!scenarioType) return 'scenarioType is required';
+  if (!['bnpl', 'savings', 'both'].includes(scenarioType)) return 'scenarioType must be bnpl, savings, or both';
+  if (income === undefined || income === null) return 'income is required';
+  if (amount === undefined || amount === null) return 'amount is required';
+  if (months === undefined || months === null) return 'months is required';
+  if (typeof income !== 'number' || income <= 0) return 'income must be a positive number';
+  if (typeof amount !== 'number' || amount <= 0) return 'amount must be a positive number';
+  if (typeof months !== 'number' || months <= 0 || !Number.isInteger(months)) return 'months must be a positive integer';
+  if (months > 120) return 'months cannot exceed 120 (10 years)';
+  return null;
+};
+
 
 
 /**
@@ -82,5 +96,5 @@ function validateResilienceInput(body) {
   return { valid: true };
 }
 
-module.exports = {validateSpendingInput, validateBNPLInput, validateResilienceInput };
+module.exports = {validateSpendingInput,validateSimulationInput, validateBNPLInput, validateResilienceInput, validateSimulationInput};
 

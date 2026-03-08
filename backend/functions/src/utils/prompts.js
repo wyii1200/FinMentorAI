@@ -36,6 +36,41 @@ Rules:
 - Tailor advice to ASEAN/Malaysian context (mention RM, local habits if relevant)`;
 };
 
+//future simulator (Feature 2) 
+const buildSimulationPrompt = ({ scenarioType, income, amount, months, interestRate, existingSavings, simulation }) => {
+  const scenarioDesc = scenarioType === 'bnpl'
+    ? `taking a BNPL/loan of RM${amount} over ${months} months at ${interestRate}% interest`
+    : scenarioType === 'savings'
+    ? `saving RM${amount} per month for ${months} months`
+    : `both taking a BNPL of RM${amount} AND saving monthly for ${months} months`;
+
+  return `You are FinMentor, a friendly financial literacy advisor for ASEAN youth.
+
+A user wants to simulate their financial future. Here is their scenario:
+- Scenario: ${scenarioDesc}
+- Monthly Income: RM${income}
+- Existing Savings: RM${existingSavings}
+- Simulation Duration: ${months} months
+
+Results of the simulation:
+- Total Interest Paid: RM${simulation.interestPaid}
+- Emergency Fund Score: ${simulation.emergencyScore} months survivable without income
+- Net Worth Change: RM${simulation.netWorthDelta}
+- Risk Level: ${simulation.riskLevel}
+
+Your task:
+1. Tell the user what their financial situation will look like after ${months} months (2-3 sentences)
+2. Highlight the single biggest consequence of this decision
+3. Give 2 specific alternative actions they could take instead
+
+Rules:
+- Use simple English, no financial jargon
+- Be honest but encouraging
+- Keep total response under 200 words
+- Format as plain text, no markdown
+- Use RM amounts and ASEAN context`;
+};
+
 
 /**
  * System + user prompt for BNPL Risk Explainer (Feature 3)
@@ -113,5 +148,5 @@ Provide a personalized, actionable plan.`;
   return { system, user };
 }
 
-module.exports = {buildSpendingAnalysisPrompt, bnplPrompt, resiliencePrompt };
+module.exports = {buildSpendingAnalysisPrompt,buildSimulationPrompt, bnplPrompt, resiliencePrompt };
 

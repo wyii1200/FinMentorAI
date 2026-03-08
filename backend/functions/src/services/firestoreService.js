@@ -26,6 +26,18 @@ const saveSpendingAnalysis = async (userId, analysisResult) => {
     });
 };
 
+//future simulator (Feature 2)
+const saveSimulation = async (userId, simulationResult) => {
+  const ref = await db()
+    .collection('users')
+    .doc(userId)
+    .collection('simulations')
+    .add({
+      ...simulationResult,
+      createdAt: new Date(),
+    });
+  return ref.id;
+};
 
 /**
  * Save a BNPL risk check result for a user.
@@ -121,6 +133,7 @@ module.exports = {
   saveSpendingAnalysis ,
   saveBNPLCheck,
   saveResilienceSnap,
+  saveSimulation,
   getBNPLHistory,
   getResilienceHistory,
   saveProfile,
