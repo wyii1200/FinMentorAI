@@ -16,6 +16,17 @@ const admin = require("firebase-admin");
 const db = () => admin.firestore();
 const timestamp = () => admin.firestore.FieldValue.serverTimestamp();
 
+//analyze Spending (Feature 1)
+const saveSpendingAnalysis = async (userId, analysisResult) => {
+  await db.collection('users').doc(userId)
+    .collection('spendingAnalyses')
+    .add({
+      ...analysisResult,
+      createdAt: new Date(),
+    });
+};
+
+
 /**
  * Save a BNPL risk check result for a user.
  * @param {string} uid
@@ -107,6 +118,7 @@ async function saveProfile(uid, profile) {
 }
 
 module.exports = {
+  saveSpendingAnalysis ,
   saveBNPLCheck,
   saveResilienceSnap,
   getBNPLHistory,

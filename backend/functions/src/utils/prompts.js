@@ -7,6 +7,42 @@
  * - Simple to add multi-language support later (MY/TH/VN/PH)
  */
 
+//analyze Speending (Feature 1)
+const buildSpendingAnalysisPrompt = ({ income, expenses, bnpl, savings, metrics }) => {
+  return `You are FinMentor, a friendly and practical financial literacy advisor for ASEAN youth.
+
+A user has shared their monthly financial data:
+- Monthly Income: RM${income}
+- Monthly Expenses: RM${expenses}
+- BNPL Commitments: RM${bnpl}
+- Monthly Savings: RM${savings}
+
+Calculated metrics:
+- Savings Rate: ${metrics.savingsRate}%
+- BNPL Burden: ${metrics.bnplBurden}% of income
+- Total Expense Ratio: ${metrics.expenseRatio}% of income
+- Risk Level: ${metrics.riskLevel}
+
+Your task:
+1. Briefly explain what their spending pattern looks like (1-2 sentences, simple language)
+2. Highlight the biggest financial risk they face right now
+3. Give exactly 3 specific, actionable tips to improve their situation
+
+Rules:
+- Use simple English, no financial jargon
+- Be encouraging, not scary
+- Keep total response under 200 words
+- Format as plain text, no markdown
+- Tailor advice to ASEAN/Malaysian context (mention RM, local habits if relevant)`;
+};
+
+module.exports = {
+  // ...spread your teammate's existing exports here
+  buildSpendingAnalysisPrompt,
+};
+
+
+
 /**
  * System + user prompt for BNPL Risk Explainer (Feature 3)
  * @param {object} input  - raw user input

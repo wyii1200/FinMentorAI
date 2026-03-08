@@ -6,6 +6,25 @@
  * returning clear error messages if required fields are missing or invalid.
  */
 
+//analyze Spending (Feature 1)
+const validateSpendingInput = ({ income, expenses, bnpl, savings }) => {
+  if (income === undefined || income === null) return 'Income is required';
+  if (expenses === undefined || expenses === null) return 'Expenses is required';
+  if (bnpl === undefined || bnpl === null) return 'BNPL amount is required';
+  if (savings === undefined || savings === null) return 'Savings amount is required';
+
+  if (typeof income !== 'number' || income < 0) return 'Income must be a positive number';
+  if (typeof expenses !== 'number' || expenses < 0) return 'Expenses must be a positive number';
+  if (typeof bnpl !== 'number' || bnpl < 0) return 'BNPL must be a positive number';
+  if (typeof savings !== 'number' || savings < 0) return 'Savings must be a positive number';
+
+  if (expenses + bnpl + savings > income * 2) return 'Expenses seem unrealistically high, please check your input';
+
+  return null; // no error
+};
+
+
+
 /**
  * Validate BNPL analysis input (Feature 3)
  * @param {object} body - req.body
@@ -63,5 +82,5 @@ function validateResilienceInput(body) {
   return { valid: true };
 }
 
-module.exports = { validateBNPLInput, validateResilienceInput };
+module.exports = {validateSpendingInput, validateBNPLInput, validateResilienceInput };
 

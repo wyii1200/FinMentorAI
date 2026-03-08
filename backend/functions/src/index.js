@@ -6,10 +6,14 @@
 const admin = require("firebase-admin");
 admin.initializeApp();
 
+const { analyzeSpending } = require('./handlers/analyzeSpending');
 const { analyzeBNPL } = require("./handlers/analyzeBNPL");
 const { calcResilience } = require("./handlers/calcResilience");
+const { authenticate } = require('./middleware/authMiddleware');
+const { rateLimiter } = require('./middleware/rateLimiter');
 
 module.exports = {
+  analyzeSpending,
   analyzeBNPL,
   calcResilience,
 };

@@ -11,6 +11,49 @@
  * but the math is currency-agnostic.
  */
 
+//Analyaze Spending (Feature 1)
+const calculateSpendingMetrics = ({ income, expenses, bnpl, savings }) => {
+  const totalExpenses = expenses + bnpl;
+  const savingsRate = income > 0 ? (savings / income) * 100 : 0;
+  const bnplBurden = income > 0 ? (bnpl / income) * 100 : 0;
+  const disposableIncome = income - totalExpenses - savings;
+
+  // Risk scoring
+  let riskScore = 0;
+
+  if (savingsRate < 10) riskScore += 2;
+  else if (savingsRate < 20) riskScore += 1;
+
+  if (bnplBurden > 20) riskScore += 2;
+  else if (bnplBurden > 10) riskScore += 1;
+
+  const expenseRatio = income > 0 ? (totalExpenses / income) * 100 : 100;
+  if (expenseRatio > 90) riskScore += 2;
+  else if (expenseRatio > 75) riskScore += 1;
+
+  let riskLevel;
+  if (riskScore >= 4) riskLevel = 'High';
+  else if (riskScore >= 2) riskLevel = 'Medium';
+  else riskLevel = 'Low';
+
+  return {
+    savingsRate: parseFloat(savingsRate.toFixed(2)),
+    bnplBurden: parseFloat(bnplBurden.toFixed(2)),
+    disposableIncome: parseFloat(disposableIncome.toFixed(2)),
+    expenseRatio: parseFloat(expenseRatio.toFixed(2)),
+    riskLevel,
+    riskScore,
+  };
+};
+
+module.exports = {
+  // ...spread your teammate's existing exports here
+  calculateSpendingMetrics,
+};
+
+
+
+
 /**
  * BNPL / Loan cost breakdown (Feature 3)
  *
