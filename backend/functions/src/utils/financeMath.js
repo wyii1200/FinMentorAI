@@ -46,13 +46,6 @@ const calculateSpendingMetrics = ({ income, expenses, bnpl, savings }) => {
   };
 };
 
-module.exports = {
-  // ...spread your teammate's existing exports here
-  calculateSpendingMetrics,
-};
-
-
-
 
 /**
  * BNPL / Loan cost breakdown (Feature 3)
@@ -180,5 +173,5 @@ function round(n) {
   return Math.round(n * 100) / 100;
 }
 
-module.exports = { computeBNPL, computeResilience };
+module.exports = {calculateSpendingMetrics, computeBNPL, computeResilience };
 

@@ -36,12 +36,6 @@ Rules:
 - Tailor advice to ASEAN/Malaysian context (mention RM, local habits if relevant)`;
 };
 
-module.exports = {
-  // ...spread your teammate's existing exports here
-  buildSpendingAnalysisPrompt,
-};
-
-
 
 /**
  * System + user prompt for BNPL Risk Explainer (Feature 3)
@@ -119,5 +113,5 @@ Provide a personalized, actionable plan.`;
   return { system, user };
 }
 
-module.exports = { bnplPrompt, resiliencePrompt };
+module.exports = {buildSpendingAnalysisPrompt, bnplPrompt, resiliencePrompt };
 

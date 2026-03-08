@@ -40,8 +40,9 @@ const { analyzeSpendingWithClaude } = require('../services/claudeService');
 const { saveSpendingAnalysis } = require('../services/firestoreService');
 const { calculateSpendingMetrics } = require('../utils/financeMath');
 const { validateSpendingInput } = require('../utils/validators');
+const { onRequest } = require('firebase-functions/https');
 
-const analyzeSpending = async (req, res) => {
+const analyzeSpendingHandler =async (req, res) => {
   try {
     const { income, expenses, bnpl, savings, userId } = req.body;
 
@@ -83,4 +84,5 @@ const analyzeSpending = async (req, res) => {
   }
 };
 
+const analyzeSpending = onRequest(analyzeSpendingHandler);
 module.exports = { analyzeSpending };

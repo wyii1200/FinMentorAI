@@ -18,7 +18,7 @@ const timestamp = () => admin.firestore.FieldValue.serverTimestamp();
 
 //analyze Spending (Feature 1)
 const saveSpendingAnalysis = async (userId, analysisResult) => {
-  await db.collection('users').doc(userId)
+  await db().collection('users').doc(userId)
     .collection('spendingAnalyses')
     .add({
       ...analysisResult,
