@@ -27,10 +27,3 @@ const analyzeSpendingWithClaude = async ({ income, expenses, bnpl, savings, metr
 module.exports = {
   analyzeSpendingWithClaude,
 };
-```
-
----
-
-## Then in your `.env` file, add:
-```
-ANTHROPIC_API_KEY=your_api_key_here
