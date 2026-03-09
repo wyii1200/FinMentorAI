@@ -11,10 +11,11 @@
  *   /rateLimits/{uid_date}               — Rate limiter counters
  */
 
+const { getFirestore, FieldValue } = require("firebase-admin/firestore");
 const admin = require("firebase-admin");
 
-const db = () => admin.firestore();
-const timestamp = () => admin.firestore.FieldValue.serverTimestamp();
+const db = () => getFirestore();
+const timestamp = () => FieldValue.serverTimestamp();
 
 //analyze Spending (Feature 1)
 const saveSpendingAnalysis = async (userId, analysisResult) => {

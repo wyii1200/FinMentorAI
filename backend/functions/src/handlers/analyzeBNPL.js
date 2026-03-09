@@ -30,7 +30,9 @@
  * }
  */
 
-const functions = require("firebase-functions");
+//const functions = require("firebase-functions");
+const { onRequest } = require("firebase-functions/https");
+
 const { authMiddleware } = require("../middleware/authMiddleware");
 const { rateLimiter } = require("../middleware/rateLimiter");
 const { computeBNPL } = require("../utils/financeMath");
@@ -39,9 +41,13 @@ const { bnplPrompt } = require("../utils/prompts");
 const { askClaude, ANTHROPIC_KEY } = require("../services/claudeService");
 const { saveBNPLCheck } = require("../services/firestoreService");
 
-const analyzeBNPL = functions
-  .runWith({ secrets: [ANTHROPIC_KEY] })
-  .https.onRequest(async (req, res) => {
+const { defineSecret } = require("firebase-functions/params");
+
+//const ANTHROPIC_KEY = defineSecret("ANTHROPIC_API_KEY");
+
+//use v2
+const analyzeBNPL = onRequest({ secrets: [ANTHROPIC_KEY] }, 
+    async (req, res) => {
     // CORS headers — allow your frontend domain in production
     res.set("Access-Control-Allow-Origin", "*");
     res.set("Access-Control-Allow-Methods", "POST, OPTIONS");
@@ -51,7 +57,10 @@ const analyzeBNPL = functions
     if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed." });
 
     // Step 1: Auth
-    await authMiddleware(req, res, async () => {
+
+    //skip auth for now to speed up testing
+    //await authMiddleware(req, res, async () => {
+      req.user = { uid: "test_user_123" }; // fake user
       const uid = req.user.uid;
 
       // Step 2: Rate limit
@@ -101,7 +110,8 @@ const analyzeBNPL = functions
       // Step 7: Respond
       return res.status(200).json({ math, aiAdvice, savedId });
     });
-  });
+    
+  //});
 
 module.exports = { analyzeBNPL };
 

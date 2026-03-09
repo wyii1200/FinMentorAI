@@ -12,36 +12,31 @@
  */
 
 const admin = require("firebase-admin");
+const { getFirestore, FieldValue } = require("firebase-admin/firestore");  // ADD THIS
 
 const DAILY_LIMIT = 10;
 
 async function rateLimiter(uid) {
-  // Key resets naturally each day because the date is part of the document ID
-  const today = new Date().toISOString().split("T")[0]; // "YYYY-MM-DD"
-  const ref = admin.firestore()
-    .collection("rateLimits")
-    .doc(`${uid}_${today}`);
+  const today = new Date().toISOString().split("T")[0];
+  const db = getFirestore();                                               // CHANGE THIS
+  const ref = db.collection("rateLimits").doc(`${uid}_${today}`);
 
-  return admin.firestore().runTransaction(async (transaction) => {
+  return db.runTransaction(async (transaction) => {
     const doc = await transaction.get(ref);
     const currentCount = doc.exists ? doc.data().count : 0;
 
     if (currentCount >= DAILY_LIMIT) {
-      return false; // blocked
+      return false;
     }
 
-    transaction.set(
-      ref,
-      {
-        uid,
-        date: today,
-        count: currentCount + 1,
-        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-      },
-      { merge: true }
-    );
+    transaction.set(ref, {
+      uid,
+      date: today,
+      count: currentCount + 1,
+      updatedAt: FieldValue.serverTimestamp(),                             // CHANGE THIS
+    }, { merge: true });
 
-    return true; // allowed
+    return true;
   });
 }
 

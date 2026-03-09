@@ -65,9 +65,20 @@ const getMockSimulationAdvice = (simulation, scenarioType, months) => {
   return `Running both scenarios shows the real trade-off of your financial decisions. Your net worth change over ${months} months is RM${simulation.netWorthDelta}. The biggest insight is that BNPL interest of RM${simulation.interestPaid} directly reduces what you can save. Alternative 1: Clear BNPL first before increasing savings. Alternative 2: Use the debt avalanche method — pay minimum on all BNPL and throw extra money at the highest interest one first.`;
 };
 
+//feature 3 4
+const { defineSecret } = require("firebase-functions/params");
+const ANTHROPIC_KEY = defineSecret("ANTHROPIC_API_KEY");
+
+// Temporary mock — replace with real Anthropic call when credits ready
+const askClaude = async (system, user) => {
+  return "AI advice temporarily using mock. Real API coming soon.";
+};
 
 module.exports = {
   analyzeSpendingWithClaude,
   simulateFutureWithClaude,
+  askClaude,        // ← F3 and F4 need this
+  ANTHROPIC_KEY,    // ← F3 and F4 need this
+  
 };
 
