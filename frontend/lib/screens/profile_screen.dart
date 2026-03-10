@@ -1,15 +1,77 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+
+import '../providers/user_provider.dart';
 import '../theme/app_theme.dart';
 import '../widgets/app_widgets.dart';
+import 'onboarding_screen.dart';
 
 class ProfileScreen extends StatelessWidget {
   final VoidCallback onBack;
 
   const ProfileScreen({super.key, required this.onBack});
 
+  Future<void> _handleLogout(BuildContext context) async {
+    final shouldLogout = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        final theme = Theme.of(context);
+
+        return AlertDialog(
+          backgroundColor: Colors.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(24),
+          ),
+          title: Text(
+            'Log out?',
+            style: theme.textTheme.titleLarge?.copyWith(
+              fontWeight: FontWeight.w800,
+              color: AppColors.textPrimary,
+            ),
+          ),
+          content: Text(
+            'You will need to log in again to access your financial dashboard.',
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: AppColors.textSecondary,
+              height: 1.45,
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(context, true),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.danger,
+                foregroundColor: Colors.white,
+                minimumSize: const Size(100, 44),
+              ),
+              child: const Text('Log Out'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (shouldLogout != true || !context.mounted) return;
+
+    context.read<UserProvider>().logout();
+
+    Navigator.pushAndRemoveUntil(
+      context,
+      MaterialPageRoute(builder: (_) => const OnboardingScreen()),
+      (route) => false,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final userProvider = context.watch<UserProvider>();
+    final displayName =
+        userProvider.userName.trim().isEmpty ? 'Amir' : userProvider.userName;
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -52,7 +114,7 @@ class ProfileScreen extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Amir',
+                          displayName,
                           style: theme.textTheme.titleMedium?.copyWith(
                             fontWeight: FontWeight.w800,
                             color: AppColors.textPrimary,
@@ -142,13 +204,7 @@ class ProfileScreen extends StatelessWidget {
             AppCard(
               color: AppColors.subtleDangerBg,
               child: InkWell(
-                onTap: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Log out action goes here.'),
-                    ),
-                  );
-                },
+                onTap: () => _handleLogout(context),
                 borderRadius: BorderRadius.circular(24),
                 child: Row(
                   children: [
