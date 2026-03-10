@@ -125,15 +125,15 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen>
   }
 
   void _handleBack() {
-    if (_step > 0) {
-      setState(() => _step--);
-      _animCtrl
-        ..reset()
-        ..forward();
-    } else {
-      Navigator.maybePop(context);
-    }
+  if (_step > 0 && _step < 3) {
+    setState(() => _step--);
+    _animCtrl
+      ..reset()
+      ..forward();
+  } else {
+    Navigator.maybePop(context);
   }
+}
 
   @override
   Widget build(BuildContext context) {
@@ -347,47 +347,46 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen>
   }
 
   Widget _buildSuccessStep(ThemeData theme) {
-    return Column(
-      children: [
-        const Icon(
-          Icons.check_circle_rounded,
-          color: AppColors.primary,
-          size: 80,
+  return Column(
+    children: [
+      const Icon(
+        Icons.check_circle_rounded,
+        color: AppColors.primary,
+        size: 80,
+      ),
+      const SizedBox(height: 20),
+      Text(
+        'Success!',
+        style: theme.textTheme.titleLarge?.copyWith(
+          fontWeight: FontWeight.w800,
+          color: AppColors.textPrimary,
         ),
-        const SizedBox(height: 20),
-        Text(
-          'Success!',
-          style: theme.textTheme.titleLarge?.copyWith(
-            fontWeight: FontWeight.w800,
-            color: AppColors.textPrimary,
-          ),
+      ),
+      const SizedBox(height: 10),
+      Text(
+        'You can now log in with your new password.',
+        textAlign: TextAlign.center,
+        style: theme.textTheme.bodyMedium?.copyWith(
+          color: AppColors.textSecondary,
         ),
-        const SizedBox(height: 10),
-        Text(
-          'You can now log in with your new password.',
-          textAlign: TextAlign.center,
-          style: theme.textTheme.bodyMedium?.copyWith(
-            color: AppColors.textSecondary,
-          ),
+      ),
+      const SizedBox(height: 30),
+      SizedBox(
+        width: double.infinity,
+        child: ElevatedButton(
+          onPressed: () {
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (_) => const LoginScreen()),
+            );
+          },
+          child: const Text('Go to Login'),
         ),
-        const SizedBox(height: 30),
-        SizedBox(
-          width: double.infinity,
-          child: ElevatedButton(
-            onPressed: () {
-              Navigator.pushAndRemoveUntil(
-                context,
-                MaterialPageRoute(builder: (_) => const LoginScreen()),
-                (route) => false,
-              );
-            },
-            child: const Text('Go to Login'),
-          ),
-        ),
-      ],
-    );
-  }
-
+      ),
+    ],
+  );
+}
+  
   Widget _buildLabel(ThemeData theme, String text) {
     return Text(
       text,
