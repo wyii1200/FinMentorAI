@@ -1,0 +1,24 @@
+name: finmentor_ai
+description: FinMentor AI - Financial Literacy App for ASEAN Youth
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  google_fonts: ^6.1.0
+  fl_chart: ^0.68.0
+  curved_navigation_bar: ^1.0.3
+  animate_do: ^3.3.4
+  provider: ^6.1.5+1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.0
+
+flutter:
+  uses-material-design: true
