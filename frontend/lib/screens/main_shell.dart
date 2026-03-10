@@ -1,11 +1,22 @@
 import 'package:flutter/material.dart';
 import 'package:curved_navigation_bar/curved_navigation_bar.dart';
+
 import '../theme/app_theme.dart';
+
+// Main tab screens
 import 'dashboard_screen.dart';
 import 'analyzer_screen.dart';
 import 'simulator_screen.dart';
 import 'bnpl_screen.dart';
 import 'resilience_screen.dart';
+
+// Sub screens
+import 'income_screen.dart';
+import 'spent_screen.dart';
+import 'saved_screen.dart';
+import 'search_screen.dart';
+import 'profile_screen.dart';
+import 'notifications_screen.dart';
 
 class MainShell extends StatefulWidget {
   const MainShell({super.key});
@@ -15,71 +26,139 @@ class MainShell extends StatefulWidget {
 }
 
 class _MainShellState extends State<MainShell> {
-  int _currentIndex = 0;
-  final GlobalKey<CurvedNavigationBarState> _navKey = GlobalKey();
+  final GlobalKey<CurvedNavigationBarState> _navKey =
+      GlobalKey<CurvedNavigationBarState>();
 
-  late final List<Widget> _screens;
+  int _currentIndex = ShellTab.dashboard.tabIndex;
 
-  @override
-  void initState() {
-    super.initState();
-    _screens = [
-      DashboardScreen(onNavigate: _jumpToTab),
-      const AnalyzerScreen(),
-      const SimulatorScreen(),
-      const BNPLScreen(),
-      const ResilienceScreen(),
-    ];
+  void _resetToDashboard() {
+    setState(() {
+      _currentIndex = ShellTab.dashboard.tabIndex;
+    });
+    _navKey.currentState?.setPage(ShellTab.dashboard.tabIndex);
   }
 
   void _onTabTapped(int index) {
     if (_currentIndex == index) return;
-    setState(() => _currentIndex = index);
+    setState(() {
+      _currentIndex = index;
+    });
   }
 
   void _jumpToTab(int index) {
-    _navKey.currentState?.setPage(index);
+    if (_currentIndex == index) return;
+
+    setState(() {
+      _currentIndex = index;
+    });
+
+    if (_isMainTab(index)) {
+      _navKey.currentState?.setPage(index);
+    }
+  }
+
+  bool _isMainTab(int index) => index >= 0 && index <= 4;
+
+  bool _showBottomNav() => _isMainTab(_currentIndex);
+
+  bool _showAppBar() {
+    return _isMainTab(_currentIndex);
+  }
+
+  Widget _getActiveScreen() {
+    switch (_currentIndex) {
+      case 0:
+        return DashboardScreen(onNavigate: _jumpToTab);
+      case 1:
+        return const AnalyzerScreen();
+      case 2:
+        return const SimulatorScreen();
+      case 3:
+        return const BNPLScreen();
+      case 4:
+        return const ResilienceScreen();
+      case 6:
+        return IncomeScreen(onBack: _resetToDashboard);
+      case 7:
+        return SpentScreen(onBack: _resetToDashboard);
+      case 8:
+        return SavedScreen(onBack: _resetToDashboard);
+      case 9:
+        return NotificationsScreen(onBack: _resetToDashboard);
+      case 10:
+        return ProfileScreen(onBack: _resetToDashboard);
+      case 11:
+        return SearchScreen(
+          onBack: _resetToDashboard,
+          onNavigate: _jumpToTab,
+        );
+      default:
+        return DashboardScreen(onNavigate: _jumpToTab);
+    }
   }
 
   String _getPageTitle() {
-    const titles = [
-      'Personal Dashboard',
-      'Spending Analyzer',
-      'Future Simulator',
-      'BNPL Risk Shield',
-      'Resilience Score'
-    ];
-    return titles[_currentIndex];
+    switch (_currentIndex) {
+      case 0:
+        return 'Personal Dashboard';
+      case 1:
+        return 'Spending Analyzer';
+      case 2:
+        return 'Future Simulator';
+      case 3:
+        return 'BNPL Risk Shield';
+      case 4:
+        return 'Resilience Score';
+      case 6:
+        return 'Income Details';
+      case 7:
+        return 'Spending Breakdown';
+      case 8:
+        return 'Savings Goals';
+      case 9:
+        return 'Notifications';
+      case 10:
+        return 'My Profile';
+      case 11:
+        return 'Search';
+      default:
+        return 'FinMentor AI';
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    // PopScope prevents accidental app exit on Android
     return PopScope(
-      canPop: _currentIndex == 0,
+      canPop: _currentIndex == ShellTab.dashboard.tabIndex,
       onPopInvokedWithResult: (didPop, result) {
-        if (!didPop && _currentIndex != 0) {
-          _jumpToTab(0);
+        if (!didPop && _currentIndex != ShellTab.dashboard.tabIndex) {
+          _resetToDashboard();
         }
       },
       child: Scaffold(
         backgroundColor: AppColors.background,
-        extendBody: true, // Allows content to flow behind the curved bar
-        appBar: _buildAppBar(),
-        body: AnimatedSwitcher(
-          duration: const Duration(milliseconds: 400),
-          switchInCurve: Curves.easeIn,
-          switchOutCurve: Curves.easeOut,
-          // Fixed: AnimatedSwitcher needs a unique key on the child to trigger
-          child: Container(
-            key: ValueKey<int>(_currentIndex),
-            child: IndexedStack(
-              index: _currentIndex,
-              children: _screens,
+        extendBody: true,
+        appBar: _showAppBar() ? _buildAppBar(context) : null,
+        body: SafeArea(
+          top: false,
+          bottom: false,
+          child: AnimatedSwitcher(
+            duration: const Duration(milliseconds: 280),
+            switchInCurve: Curves.easeOut,
+            switchOutCurve: Curves.easeIn,
+            transitionBuilder: (child, animation) {
+              return FadeTransition(
+                opacity: animation,
+                child: child,
+              );
+            },
+            child: KeyedSubtree(
+              key: ValueKey(_currentIndex),
+              child: _getActiveScreen(),
             ),
           ),
         ),
-        bottomNavigationBar: _buildBottomNav(),
+        bottomNavigationBar: _showBottomNav() ? _buildBottomNav() : null,
       ),
     );
   }
@@ -87,122 +166,90 @@ class _MainShellState extends State<MainShell> {
   Widget _buildBottomNav() {
     return CurvedNavigationBar(
       key: _navKey,
+      index: _currentIndex.clamp(0, 4).toInt(),
       backgroundColor: Colors.transparent,
-      color: AppColors.dark,
+      color: AppColors.textPrimary,
       buttonBackgroundColor: AppColors.primary,
-      animationDuration: const Duration(milliseconds: 450),
-      animationCurve: Curves.easeInOutBack, // Added a slight bounce
-      height: 65,
-      index: _currentIndex,
+      animationDuration: const Duration(milliseconds: 350),
+      animationCurve: Curves.easeOutCubic,
+      height: 64,
       onTap: _onTabTapped,
       items: const [
-        Icon(Icons.grid_view_rounded, color: Colors.white, size: 24),
-        Icon(Icons.analytics_rounded, color: Colors.white, size: 24),
-        Icon(Icons.auto_graph_rounded, color: Colors.white, size: 24),
-        Icon(Icons.credit_card_rounded, color: Colors.white, size: 24),
-        Icon(Icons.shield_rounded, color: Colors.white, size: 24),
+        Icon(Icons.grid_view_rounded, color: Colors.white, size: 22),
+        Icon(Icons.analytics_rounded, color: Colors.white, size: 22),
+        Icon(Icons.auto_graph_rounded, color: Colors.white, size: 22),
+        Icon(Icons.credit_card_rounded, color: Colors.white, size: 22),
+        Icon(Icons.shield_rounded, color: Colors.white, size: 22),
       ],
     );
   }
 
-  PreferredSizeWidget _buildAppBar() {
+  PreferredSizeWidget _buildAppBar(BuildContext context) {
+    final theme = Theme.of(context);
+
     return AppBar(
       backgroundColor: AppColors.background,
+      automaticallyImplyLeading: false,
       elevation: 0,
-      scrolledUnderElevation: 2, // Slight shadow when scrolling
-      centerTitle: false,
+      scrolledUnderElevation: 0,
+      titleSpacing: 16,
       title: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Text(
-                'FinMentor',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w900,
-                  color: AppColors.dark,
-                  letterSpacing: -0.5,
-                ),
-              ),
-              const SizedBox(width: 4),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                decoration: BoxDecoration(
-                  color: AppColors.primary,
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                child: const Text(
-                  'AI',
-                  style: TextStyle(
-                      fontSize: 10,
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold),
-                ),
-              ),
-            ],
+          Text(
+            'FinMentor',
+            style: theme.textTheme.titleLarge?.copyWith(
+              fontWeight: FontWeight.w800,
+              color: AppColors.textPrimary,
+            ),
           ),
+          const SizedBox(height: 2),
           Text(
             _getPageTitle(),
-            style: const TextStyle(
-              fontSize: 12,
-              color: AppColors.grey,
-              fontWeight: FontWeight.w500,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: AppColors.textSecondary,
             ),
           ),
         ],
       ),
       actions: [
-        _buildActionIcon(Icons.search_rounded),
-        _buildNotificationIcon(),
-        _buildUserAvatar(),
-      ],
-    );
-  }
-
-  Widget _buildActionIcon(IconData icon) {
-    return IconButton(
-      onPressed: () {},
-      icon: Icon(icon, color: AppColors.dark, size: 22),
-    );
-  }
-
-  Widget _buildNotificationIcon() {
-    return Stack(
-      children: [
         IconButton(
-          onPressed: () {},
-          icon: const Icon(Icons.notifications_none_rounded,
-              color: AppColors.dark, size: 24),
+          tooltip: 'Search',
+          icon: const Icon(Icons.search_rounded, color: AppColors.textPrimary),
+          onPressed: () => _jumpToTab(11),
         ),
-        Positioned(
-          top: 12,
-          right: 12,
-          child: Container(
-            width: 8,
-            height: 8,
-            decoration: BoxDecoration(
-              color: Colors.redAccent,
-              shape: BoxShape.circle,
-              border: Border.all(color: AppColors.background, width: 1.5),
+        IconButton(
+          tooltip: 'Notifications',
+          icon: const Icon(
+            Icons.notifications_none_rounded,
+            color: AppColors.textPrimary,
+          ),
+          onPressed: () => _jumpToTab(9),
+        ),
+        GestureDetector(
+          onTap: () => _jumpToTab(10),
+          child: const Padding(
+            padding: EdgeInsets.only(right: 16, left: 8),
+            child: CircleAvatar(
+              radius: 17,
+              backgroundImage: NetworkImage(
+                'https://i.pravatar.cc/150?u=finmentor-user',
+              ),
             ),
           ),
         ),
       ],
     );
   }
+}
 
-  Widget _buildUserAvatar() {
-    return Padding(
-      padding: const EdgeInsets.only(right: 16, left: 4),
-      child: GestureDetector(
-        onTap: () {},
-        child: CircleAvatar(
-          radius: 18,
-          backgroundColor: AppColors.primary.withOpacity(0.1),
-          child: const Text('👤', style: TextStyle(fontSize: 16)),
-        ),
-      ),
-    );
-  }
+enum ShellTab {
+  dashboard(0),
+  analyzer(1),
+  simulator(2),
+  bnpl(3),
+  resilience(4);
+
+  const ShellTab(this.tabIndex);
+  final int tabIndex;
 }
