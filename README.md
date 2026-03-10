@@ -20,17 +20,10 @@ Measures your "Financial Runway"—how many months you can sustain your current 
 
 - **Backend:** Node.js (Firebase Cloud Functions)
 - **Database:** Google Cloud Firestore
-- **AI Engine:** Anthropic Claude 3
+- **AI Engine:** XXX
 - **Authentication:** Firebase Authentication
 
-## ⚙️ Setup Instructions
-
-### Prerequisites
-- Node.js (v24 or higher recommended)
-- Firebase CLI (`npm install -g firebase-tools`)
-- An Anthropic API Key
-
-### Installation
+### How to Run
 
 1. **Clone the repository:**
    ```bash
@@ -38,32 +31,11 @@ Measures your "Financial Runway"—how many months you can sustain your current 
    cd FinMentorAI
    ```
 
-2. **Setup Backend:**
-   ```bash
-   cd backend/functions
-   npm install
-   ```
-
-3. **Environment Configuration:**
-   Create a `.env` file in `backend/functions` or use Firebase Functions configuration to set your API key:
-   ```env
-   ANTHROPIC_API_KEY=your_claude_api_key_here
-   ```
-
-4. **Run Locally:**
-   Start the Firebase Emulators to test the functions locally:
-   ```bash
-   firebase emulators:start --only functions
-   ```
-
-5. **Deployment:**
-   ```bash
-   firebase deploy --only functions
-   ```
+2. 
 
 ## 🤖 AI Disclosure
 
-**FinMentor AI uses Artificial Intelligence (Anthropic Claude) to provide financial insights.**
+**FinMentor AI uses Artificial Intelligence (XXX) to provide financial insights.**
 
 - The advice provided by the AI is for **educational and informational purposes only**.
 - It is **not professional financial advice**.
