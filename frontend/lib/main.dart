@@ -10,6 +10,7 @@ import 'screens/onboarding_screen.dart';
 import 'screens/main_shell.dart';
 import 'screens/login_screen.dart';
 import 'screens/signup_screen.dart';
+import 'screens/financial_setup_screen.dart';
 import 'screens/income_screen.dart';
 import 'screens/spent_screen.dart';
 import 'screens/saved_screen.dart';
@@ -104,10 +105,22 @@ class AppEntry extends StatelessWidget {
   Widget build(BuildContext context) {
     return Consumer<UserProvider>(
       builder: (context, userProv, _) {
-        if (userProv.isLoggedIn) {
-          return const MainShell();
+        if (!userProv.isLoggedIn) {
+          return const OnboardingScreen();
         }
-        return const OnboardingScreen();
+
+        final hasFinancialProfile = userProv.income > 0 ||
+            userProv.expenses > 0 ||
+            userProv.savingsGoal > 0 ||
+            userProv.bnplCommitments > 0;
+
+        if (!hasFinancialProfile) {
+          return FinancialSetupScreen(
+            userName: userProv.userName.isEmpty ? 'User' : userProv.userName,
+          );
+        }
+
+        return const MainShell();
       },
     );
   }

@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+
+import '../providers/user_provider.dart';
 import '../theme/app_theme.dart';
 import '../widgets/app_widgets.dart';
 
@@ -10,6 +13,12 @@ class IncomeScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final user = context.watch<UserProvider>();
+
+    final income = user.income;
+    final salaryPortion = income * 0.85;
+    final sideIncomePortion = income * 0.10;
+    final otherPortion = income * 0.05;
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -22,7 +31,7 @@ class IncomeScreen extends StatelessWidget {
           onPressed: onBack,
         ),
         title: Text(
-          'Income History',
+          'Income Overview',
           style: theme.textTheme.titleLarge?.copyWith(
             fontWeight: FontWeight.w800,
             color: AppColors.textPrimary,
@@ -58,7 +67,7 @@ class IncomeScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'RM 3,500',
+                    _formatCurrency(income),
                     style: theme.textTheme.displayMedium?.copyWith(
                       fontWeight: FontWeight.w900,
                       color: AppColors.primary,
@@ -66,50 +75,60 @@ class IncomeScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 8),
                   AppTag(
-                    label: 'Stable Income',
-                    bgColor: AppColors.subtleSuccessBg,
-                    textColor: AppColors.success,
+                    label: _incomeStabilityLabel(income),
+                    bgColor: _incomeStabilityBg(income),
+                    textColor: _incomeStabilityColor(income),
                   ),
                 ],
               ),
             ),
             const SizedBox(height: 20),
             Text(
-              'Income Sources',
+              'Estimated Income Sources',
               style: theme.textTheme.titleMedium?.copyWith(
                 fontWeight: FontWeight.w800,
                 color: AppColors.textPrimary,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              'These categories are a simple frontend estimate until connected income records are available.',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: AppColors.textSecondary,
+                height: 1.4,
               ),
             ),
             const SizedBox(height: 12),
             AppCard(
               padding: EdgeInsets.zero,
               child: Column(
-                children: const [
+                children: [
                   _IncomeTile(
                     icon: '💼',
-                    title: 'Salary',
-                    subtitle: 'Monthly fixed income',
-                    amount: '+RM 3,200',
+                    title: 'Primary Income',
+                    subtitle: 'Main monthly income source',
+                    amount: '+${_formatCurrencyCompact(salaryPortion)}',
                     isLast: false,
                   ),
                   _IncomeTile(
                     icon: '🎨',
-                    title: 'Freelance Design',
-                    subtitle: 'Side income',
-                    amount: '+RM 200',
+                    title: 'Side Income',
+                    subtitle: 'Freelance / extra earnings',
+                    amount: '+${_formatCurrencyCompact(sideIncomePortion)}',
                     isLast: false,
                   ),
                   _IncomeTile(
                     icon: '🎁',
-                    title: 'Allowance / Other',
-                    subtitle: 'Extra support',
-                    amount: '+RM 100',
+                    title: 'Other Sources',
+                    subtitle: 'Allowance / miscellaneous',
+                    amount: '+${_formatCurrencyCompact(otherPortion)}',
                     isLast: true,
                   ),
                 ],
               ),
             ),
+            const SizedBox(height: 20),
+            _buildIncomeHealthCard(theme, user),
             const SizedBox(height: 20),
             AppCard(
               color: AppColors.subtleInfoBg,
@@ -137,6 +156,74 @@ class IncomeScreen extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  Widget _buildIncomeHealthCard(ThemeData theme, UserProvider user) {
+    final income = user.income;
+    final expenses = user.expenses;
+    final bnpl = user.bnplCommitments;
+    final available = user.availableToSave;
+
+    final healthy = available >= 0;
+
+    return AppCard(
+      color: healthy ? AppColors.subtleSuccessBg : AppColors.subtleWarningBg,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(
+            healthy ? Icons.trending_up_rounded : Icons.warning_amber_rounded,
+            color: healthy ? AppColors.success : AppColors.warning,
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              income <= 0
+                  ? 'No monthly income has been added yet. Complete your financial setup to unlock better insights.'
+                  : healthy
+                      ? 'After expenses and BNPL commitments, your income still leaves ${_formatCurrency(available)} of monthly breathing room.'
+                      : 'Your current expenses and BNPL commitments exceed your income by ${_formatCurrency((expenses + bnpl - income).abs())}.',
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: AppColors.textPrimary,
+                height: 1.45,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _incomeStabilityLabel(double income) {
+    if (income >= 3000) return 'Stable Income';
+    if (income >= 1500) return 'Developing Income';
+    if (income > 0) return 'Starter Income';
+    return 'No Income Added';
+  }
+
+  Color _incomeStabilityColor(double income) {
+    if (income >= 3000) return AppColors.success;
+    if (income >= 1500) return AppColors.warning;
+    if (income > 0) return AppColors.info;
+    return AppColors.textSecondary;
+  }
+
+  Color _incomeStabilityBg(double income) {
+    if (income >= 3000) return AppColors.subtleSuccessBg;
+    if (income >= 1500) return AppColors.subtleWarningBg;
+    if (income > 0) return AppColors.subtleInfoBg;
+    return AppColors.background;
+  }
+
+  String _formatCurrency(double value) {
+    return 'RM ${value.toStringAsFixed(0)}';
+  }
+
+  String _formatCurrencyCompact(double value) {
+    if (value >= 1000) {
+      return 'RM ${(value / 1000).toStringAsFixed(1)}k';
+    }
+    return 'RM ${value.toStringAsFixed(0)}';
   }
 }
 

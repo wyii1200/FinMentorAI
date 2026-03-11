@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'login_screen.dart'; // Import for navigation
-import 'main_shell.dart';
+import 'login_screen.dart';
+import 'signup_screen.dart';
 
 class OnboardingScreen extends StatefulWidget {
   const OnboardingScreen({super.key});
@@ -28,21 +28,24 @@ class _OnboardingScreenState extends State<OnboardingScreen>
 
     _fadeAnim = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(
-          parent: _mainCtrl,
-          curve: const Interval(0.0, 0.4, curve: Curves.easeIn)),
+        parent: _mainCtrl,
+        curve: const Interval(0.0, 0.4, curve: Curves.easeIn),
+      ),
     );
 
     _slideAnim =
         Tween<Offset>(begin: const Offset(0, 0.05), end: Offset.zero).animate(
       CurvedAnimation(
-          parent: _mainCtrl,
-          curve: const Interval(0.1, 0.6, curve: Curves.easeOutCubic)),
+        parent: _mainCtrl,
+        curve: const Interval(0.1, 0.6, curve: Curves.easeOutCubic),
+      ),
     );
 
     _chartAnim = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(
-          parent: _mainCtrl,
-          curve: const Interval(0.4, 1.0, curve: Curves.elasticOut)),
+        parent: _mainCtrl,
+        curve: const Interval(0.4, 1.0, curve: Curves.elasticOut),
+      ),
     );
 
     _mainCtrl.forward();
@@ -74,21 +77,23 @@ class _OnboardingScreenState extends State<OnboardingScreen>
             child: SlideTransition(
               position: _slideAnim,
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 28),
+                padding: const EdgeInsets.symmetric(horizontal: 24),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const SizedBox(height: 10),
+                    const SizedBox(height: 8),
                     _buildHeader(),
-                    const Spacer(),
+                    const SizedBox(height: 28),
                     _buildHeadline(),
-                    const SizedBox(height: 44),
+                    const SizedBox(height: 28),
                     _buildAnimatedChart(bars),
-                    const SizedBox(height: 44),
-                    _buildFeatureChips(),
-                    const Spacer(flex: 2),
+                    const SizedBox(height: 28),
+                    Expanded(
+                      child: _buildFeatureList(),
+                    ),
+                    const SizedBox(height: 18),
                     _buildActionButtons(context),
-                    const SizedBox(height: 24),
+                    const SizedBox(height: 20),
                   ],
                 ),
               ),
@@ -103,31 +108,47 @@ class _OnboardingScreenState extends State<OnboardingScreen>
     return Row(
       children: [
         Container(
-          padding: const EdgeInsets.all(10),
+          width: 52,
+          height: 52,
           decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.12),
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: Colors.white.withOpacity(0.1)),
+            color: Colors.white.withOpacity(0.10),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: Colors.white.withOpacity(0.10)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.08),
+                blurRadius: 18,
+                offset: const Offset(0, 8),
+              ),
+            ],
           ),
-          child: const Text('💚', style: TextStyle(fontSize: 22)),
+          child: const Icon(
+            Icons.account_balance_wallet_rounded,
+            color: Color(0xFFA7F36B),
+            size: 28,
+          ),
         ),
         const SizedBox(width: 14),
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('FOR ASEAN YOUTH',
-                style: GoogleFonts.plusJakartaSans(
-                  color: Colors.white.withOpacity(0.5),
-                  fontSize: 10,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 1.5,
-                )),
-            Text('FinMentor AI',
-                style: GoogleFonts.plusJakartaSans(
-                  color: Colors.white,
-                  fontSize: 20,
-                  fontWeight: FontWeight.w800,
-                )),
+            Text(
+              'FOR ASEAN YOUTH',
+              style: GoogleFonts.plusJakartaSans(
+                color: Colors.white.withOpacity(0.55),
+                fontSize: 10,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 1.5,
+              ),
+            ),
+            Text(
+              'FinMentor AI',
+              style: GoogleFonts.plusJakartaSans(
+                color: Colors.white,
+                fontSize: 22,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
           ],
         ),
       ],
@@ -138,21 +159,24 @@ class _OnboardingScreenState extends State<OnboardingScreen>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Beat debt.\nBuild wealth.\nStay resilient.',
-            style: GoogleFonts.plusJakartaSans(
-              color: Colors.white,
-              fontSize: 38,
-              fontWeight: FontWeight.w800,
-              height: 1.1,
-              letterSpacing: -1,
-            )),
-        const SizedBox(height: 20),
         Text(
-          'Smart AI guidance for navigating BNPL, automated savings, and financial freedom.',
-          style: TextStyle(
-            color: Colors.white.withOpacity(0.75),
-            fontSize: 16,
-            height: 1.5,
+          'Beat debt.\nBuild wealth.\nStay resilient.',
+          style: GoogleFonts.plusJakartaSans(
+            color: Colors.white,
+            fontSize: 36,
+            fontWeight: FontWeight.w800,
+            height: 1.05,
+            letterSpacing: -1.2,
+          ),
+        ),
+        const SizedBox(height: 18),
+        Text(
+          'Smart AI guidance for navigating BNPL, automated savings, and building stronger financial habits.',
+          style: GoogleFonts.plusJakartaSans(
+            color: Colors.white.withOpacity(0.78),
+            fontSize: 15.5,
+            height: 1.55,
+            fontWeight: FontWeight.w500,
           ),
         ),
       ],
@@ -166,13 +190,13 @@ class _OnboardingScreenState extends State<OnboardingScreen>
         return Stack(
           clipBehavior: Clip.none,
           children: [
-            Container(
-              height: 120,
-              padding: const EdgeInsets.symmetric(horizontal: 4),
+            SizedBox(
+              height: 110,
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: bars.asMap().entries.map((e) {
                   final isLast = e.key == bars.length - 1;
+
                   return Expanded(
                     child: Container(
                       margin: const EdgeInsets.symmetric(horizontal: 4),
@@ -184,11 +208,11 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                           colors: isLast
                               ? [Colors.white, Colors.white]
                               : [
-                                  Colors.white.withOpacity(0.1),
-                                  Colors.white.withOpacity(0.3)
+                                  Colors.white.withOpacity(0.10),
+                                  Colors.white.withOpacity(0.32),
                                 ],
                         ),
-                        borderRadius: BorderRadius.circular(8),
+                        borderRadius: BorderRadius.circular(10),
                       ),
                     ),
                   );
@@ -196,8 +220,8 @@ class _OnboardingScreenState extends State<OnboardingScreen>
               ),
             ),
             Positioned(
-              top: -20,
-              right: -10,
+              top: -18,
+              right: 0,
               child: Transform.scale(
                 scale: _chartAnim.value,
                 child: _buildBadge('📈 +32% avg savings'),
@@ -211,53 +235,115 @@ class _OnboardingScreenState extends State<OnboardingScreen>
 
   Widget _buildBadge(String text) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
       decoration: BoxDecoration(
-        color: const Color(0xFFFFD166), // Warmer gold for better accessibility
-        borderRadius: BorderRadius.circular(20),
+        color: const Color(0xFFFFD166),
+        borderRadius: BorderRadius.circular(22),
         boxShadow: [
           BoxShadow(
-              color: Colors.black.withOpacity(0.2),
-              blurRadius: 20,
-              offset: const Offset(0, 8))
+            color: Colors.black.withOpacity(0.18),
+            blurRadius: 16,
+            offset: const Offset(0, 8),
+          ),
         ],
       ),
-      child: Text(text,
-          style: const TextStyle(
-              color: Color(0xFF0F2419),
-              fontSize: 11,
-              fontWeight: FontWeight.w900)),
+      child: Text(
+        text,
+        style: GoogleFonts.plusJakartaSans(
+          color: const Color(0xFF0F2419),
+          fontSize: 11,
+          fontWeight: FontWeight.w800,
+        ),
+      ),
     );
   }
 
-  Widget _buildFeatureChips() {
-    final chips = ['BNPL Alerts', 'Risk Analysis', 'AI Coaching'];
-    return Wrap(
-      spacing: 12,
-      runSpacing: 12,
-      children: chips
-          .map((f) => Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+  Widget _buildFeatureList() {
+    final features = [
+      {
+        'title': 'BNPL Alerts',
+        'subtitle': 'Spot risky debt patterns before they grow.',
+        'icon': Icons.notifications_active_rounded,
+      },
+      {
+        'title': 'Risk Analysis',
+        'subtitle': 'Understand your financial resilience instantly.',
+        'icon': Icons.shield_rounded,
+      },
+      {
+        'title': 'AI Coaching',
+        'subtitle': 'Get smart savings and budgeting guidance daily.',
+        'icon': Icons.auto_awesome_rounded,
+      },
+    ];
+
+    return ListView.separated(
+      physics: const BouncingScrollPhysics(),
+      padding: EdgeInsets.zero,
+      itemCount: features.length,
+      separatorBuilder: (_, __) => const SizedBox(height: 14),
+      itemBuilder: (context, index) {
+        final item = features[index];
+
+        return Container(
+          padding: const EdgeInsets.all(18),
+          decoration: BoxDecoration(
+            color: Colors.white.withOpacity(0.09),
+            borderRadius: BorderRadius.circular(22),
+            border: Border.all(color: Colors.white.withOpacity(0.10)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.08),
+                blurRadius: 16,
+                offset: const Offset(0, 8),
+              ),
+            ],
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 46,
+                height: 46,
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.08),
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: Colors.white.withOpacity(0.1)),
+                  color: const Color(0xFFFFD166).withOpacity(0.16),
+                  borderRadius: BorderRadius.circular(14),
                 ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
+                child: Icon(
+                  item['icon'] as IconData,
+                  color: const Color(0xFFFFD166),
+                  size: 24,
+                ),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Icon(Icons.bolt, color: Color(0xFFFFD166), size: 16),
-                    const SizedBox(width: 8),
-                    Text(f,
-                        style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600)),
+                    Text(
+                      item['title'] as String,
+                      style: GoogleFonts.plusJakartaSans(
+                        color: Colors.white,
+                        fontSize: 15.5,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 5),
+                    Text(
+                      item['subtitle'] as String,
+                      style: GoogleFonts.plusJakartaSans(
+                        color: Colors.white.withOpacity(0.70),
+                        fontSize: 13.2,
+                        height: 1.45,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
                   ],
                 ),
-              ))
-          .toList(),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 
@@ -266,37 +352,53 @@ class _OnboardingScreenState extends State<OnboardingScreen>
       children: [
         SizedBox(
           width: double.infinity,
-          height: 62,
+          height: 60,
           child: ElevatedButton(
-            onPressed: () => Navigator.pushReplacement(
-                context, MaterialPageRoute(builder: (_) => const MainShell())),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const SignupScreen()),
+              );
+            },
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.white,
               foregroundColor: const Color(0xFF1A6B4A),
               elevation: 0,
               shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(20)),
+                borderRadius: BorderRadius.circular(20),
+              ),
             ),
-            child: const Text('Get Started →',
-                style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
+            child: Text(
+              'Get Started →',
+              style: GoogleFonts.plusJakartaSans(
+                fontSize: 17,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
           ),
         ),
-        const SizedBox(height: 20),
+        const SizedBox(height: 18),
         GestureDetector(
           onTap: () => Navigator.push(
-              context, MaterialPageRoute(builder: (_) => const LoginScreen())),
+            context,
+            MaterialPageRoute(builder: (_) => const LoginScreen()),
+          ),
           child: RichText(
             text: TextSpan(
-              style:
-                  TextStyle(color: Colors.white.withOpacity(0.6), fontSize: 14),
+              style: GoogleFonts.plusJakartaSans(
+                color: Colors.white.withOpacity(0.65),
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+              ),
               children: const [
                 TextSpan(text: 'Already a member? '),
                 TextSpan(
                   text: 'Log in',
                   style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w800,
-                      decoration: TextDecoration.underline),
+                    color: Colors.white,
+                    fontWeight: FontWeight.w800,
+                    decoration: TextDecoration.underline,
+                  ),
                 ),
               ],
             ),

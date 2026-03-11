@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
+import 'package:provider/provider.dart';
+
+import '../providers/user_provider.dart';
 import '../theme/app_theme.dart';
 import '../widgets/app_widgets.dart';
 
@@ -13,6 +16,7 @@ class SimulatorScreen extends StatefulWidget {
 class _SimulatorScreenState extends State<SimulatorScreen> {
   int _selectedTabIndex = 0;
   bool _isSimulated = false;
+  bool _initializedAmount = false;
   double _monthsSliderValue = 6;
 
   final List<String> _tabs = [
@@ -21,19 +25,52 @@ class _SimulatorScreenState extends State<SimulatorScreen> {
     'Personal Loan',
   ];
 
+  final TextEditingController _amountController = TextEditingController();
+
   int get _months => _monthsSliderValue.toInt();
 
-  double get _scenarioAmount {
+  double get _enteredAmount =>
+      double.tryParse(_amountController.text.trim()) ?? 0;
+
+  @override
+  void dispose() {
+    _amountController.dispose();
+    super.dispose();
+  }
+
+  double _recommendedAmount(UserProvider user) {
     switch (_selectedTabIndex) {
       case 0:
-        return 1500; // BNPL purchase amount
+        final suggestedBnpl = user.income > 0 ? user.income * 0.4 : 1500;
+        return suggestedBnpl.clamp(800.0, 2500.0).toDouble();
       case 1:
-        return 400; // extra monthly savings
+        final extraSavings =
+            user.availableToSave > 0 ? user.availableToSave * 0.4 : 400.0;
+        return extraSavings.clamp(100.0, 1200.0).toDouble();
       case 2:
-        return 5000; // personal loan amount
+        final suggestedLoan = user.income > 0 ? user.income * 1.5 : 5000;
+        return suggestedLoan.clamp(3000.0, 10000.0).toDouble();
       default:
         return 1500;
     }
+  }
+
+  double _conservativeAmount(UserProvider user) {
+    return (_recommendedAmount(user) * 0.7).clamp(50.0, 999999.0).toDouble();
+  }
+
+  double _aggressiveAmount(UserProvider user) {
+    return (_recommendedAmount(user) * 1.3).clamp(50.0, 999999.0).toDouble();
+  }
+
+  void _setScenarioAmount(double value) {
+    _amountController.text = value.toStringAsFixed(0);
+  }
+
+  void _ensureInitialAmount(UserProvider user) {
+    if (_initializedAmount) return;
+    _setScenarioAmount(_recommendedAmount(user));
+    _initializedAmount = true;
   }
 
   String get _scenarioLabel {
@@ -41,7 +78,7 @@ class _SimulatorScreenState extends State<SimulatorScreen> {
       case 0:
         return 'Purchase Amount';
       case 1:
-        return 'Monthly Savings';
+        return 'Extra Monthly Savings';
       case 2:
         return 'Loan Amount';
       default:
@@ -49,18 +86,29 @@ class _SimulatorScreenState extends State<SimulatorScreen> {
     }
   }
 
-  String get _scenarioAmountText {
-    return 'RM ${_scenarioAmount.toStringAsFixed(0)}';
+  String get _scenarioHint {
+    switch (_selectedTabIndex) {
+      case 0:
+        return 'e.g. 1500';
+      case 1:
+        return 'e.g. 400';
+      case 2:
+        return 'e.g. 5000';
+      default:
+        return 'Enter amount';
+    }
   }
 
-  List<FlSpot> _getDebtSpots() {
+  List<FlSpot> _getDebtSpots(UserProvider user) {
     if (_selectedTabIndex == 1) {
       return List.generate(_months + 1, (i) => FlSpot(i.toDouble(), 0));
     }
 
+    final principal =
+        _enteredAmount > 0 ? _enteredAmount : _recommendedAmount(user);
+
     if (_selectedTabIndex == 0) {
-      const principal = 1500.0;
-      const monthlyPayment = 250.0;
+      final monthlyPayment = principal / (_months < 6 ? 6 : _months);
 
       return List.generate(_months + 1, (i) {
         final remaining = principal - (i * monthlyPayment);
@@ -68,9 +116,7 @@ class _SimulatorScreenState extends State<SimulatorScreen> {
       });
     }
 
-    // Personal loan scenario
-    const principal = 5000.0;
-    const monthlyPayment = 320.0;
+    final monthlyPayment = principal / (_months < 12 ? 12 : _months);
 
     return List.generate(_months + 1, (i) {
       final remaining = principal - (i * monthlyPayment);
@@ -78,21 +124,25 @@ class _SimulatorScreenState extends State<SimulatorScreen> {
     });
   }
 
-  List<FlSpot> _getSavingsSpots() {
+  List<FlSpot> _getSavingsSpots(UserProvider user) {
+    final baseSavings = user.currentSavings;
     double monthlyContribution;
     double annualRate;
 
     switch (_selectedTabIndex) {
       case 0:
-        monthlyContribution = 150;
+        monthlyContribution =
+            user.availableToSave > 0 ? user.availableToSave * 0.2 : 150;
         annualRate = 0.025;
         break;
       case 1:
-        monthlyContribution = 400;
+        monthlyContribution =
+            _enteredAmount > 0 ? _enteredAmount : _recommendedAmount(user);
         annualRate = 0.035;
         break;
       case 2:
-        monthlyContribution = 100;
+        monthlyContribution =
+            user.availableToSave > 0 ? user.availableToSave * 0.15 : 100;
         annualRate = 0.02;
         break;
       default:
@@ -103,59 +153,86 @@ class _SimulatorScreenState extends State<SimulatorScreen> {
     final monthlyRate = annualRate / 12;
 
     return List.generate(_months + 1, (i) {
-      if (i == 0) return const FlSpot(0, 0);
+      if (i == 0) return FlSpot(0, baseSavings);
 
-      final value = monthlyContribution *
-          ((MathUtils.pow(1 + monthlyRate, i) - 1) / monthlyRate);
+      final futureValue = baseSavings * MathUtils.pow(1 + monthlyRate, i) +
+          monthlyContribution *
+              ((MathUtils.pow(1 + monthlyRate, i) - 1) / monthlyRate);
 
-      return FlSpot(i.toDouble(), value);
+      return FlSpot(i.toDouble(), futureValue);
     });
   }
 
-  double get _finalSavings {
-    final spots = _getSavingsSpots();
+  double _finalSavings(UserProvider user) {
+    final spots = _getSavingsSpots(user);
     return spots.isNotEmpty ? spots.last.y : 0;
   }
 
-  double get _finalDebt {
-    final spots = _getDebtSpots();
+  double _finalDebt(UserProvider user) {
+    final spots = _getDebtSpots(user);
     return spots.isNotEmpty ? spots.last.y : 0;
   }
 
-  double get _netImpact {
-    return _finalSavings - _finalDebt;
+  double _netImpact(UserProvider user) {
+    return _finalSavings(user) - _finalDebt(user);
   }
 
-  String get _riskDeltaText {
+  double _projectedScoreDelta(UserProvider user) {
+    final amount =
+        _enteredAmount > 0 ? _enteredAmount : _recommendedAmount(user);
+    final income = user.income <= 0 ? 1.0 : user.income;
+    final amountRatio = amount / income;
+
     switch (_selectedTabIndex) {
       case 0:
-        return '+4 pts';
+        if (amountRatio >= 0.5) return -5.5;
+        if (amountRatio >= 0.3) return -4.0;
+        return -2.5;
       case 1:
-        return '+12 pts';
+        if (amountRatio >= 0.2) return 12.0;
+        if (amountRatio >= 0.1) return 8.0;
+        return 5.0;
       case 2:
-        return '-6 pts';
+        if (amountRatio >= 1.5) return -7.0;
+        if (amountRatio >= 1.0) return -6.0;
+        return -4.0;
       default:
-        return '+0 pts';
+        return 0;
     }
   }
 
-  String get _adviceText {
+  String _riskDeltaText(UserProvider user) {
+    final delta = _projectedScoreDelta(user);
+    final sign = delta >= 0 ? '+' : '';
+    return '$sign${delta.toStringAsFixed(delta.abs() % 1 == 0 ? 0 : 1)} pts';
+  }
+
+  double _projectedResilienceScore(UserProvider user) {
+    final projected = user.resilienceScore + _projectedScoreDelta(user);
+    return projected.clamp(0.0, 100.0);
+  }
+
+  String _adviceText(UserProvider user) {
+    final amount =
+        (_enteredAmount > 0 ? _enteredAmount : _recommendedAmount(user))
+            .toStringAsFixed(0);
+
     switch (_selectedTabIndex) {
       case 0:
-        return 'Buying this with BNPL adds short-term pressure. Waiting a few months and saving first would reduce debt stress and improve your resilience.';
+        return 'A BNPL purchase of RM $amount adds short-term pressure to your cash flow. If the purchase is not urgent, saving first may protect your resilience better.';
       case 1:
-        return 'Increasing savings monthly builds your emergency fund faster and improves your ability to survive income shocks.';
+        return 'Adding RM $amount more into savings each month can strengthen your emergency buffer faster and improve your future financial flexibility.';
       case 2:
-        return 'A personal loan can solve immediate needs, but it reduces future flexibility. Keep repayments low enough to protect your monthly cash flow.';
+        return 'A personal loan of RM $amount can solve short-term needs, but it reduces future breathing room. Keep repayments manageable relative to your income.';
       default:
         return 'This scenario shows how today’s decisions shape your future financial resilience.';
     }
   }
 
-  double _getMaxY() {
+  double _getMaxY(UserProvider user) {
     final allY = [
-      ..._getSavingsSpots().map((e) => e.y),
-      ..._getDebtSpots().map((e) => e.y),
+      ..._getSavingsSpots(user).map((e) => e.y),
+      ..._getDebtSpots(user).map((e) => e.y),
     ];
 
     final maxValue =
@@ -164,11 +241,30 @@ class _SimulatorScreenState extends State<SimulatorScreen> {
     if (maxValue <= 1000) return 1000;
     if (maxValue <= 3000) return 3000;
     if (maxValue <= 6000) return 6000;
+    if (maxValue <= 10000) return 10000;
     return ((maxValue / 1000).ceil() * 1000).toDouble();
   }
 
-  void _runSimulation() {
+  void _runSimulation(UserProvider user) async {
     FocusScope.of(context).unfocus();
+
+    final amount = _enteredAmount;
+    if (amount <= 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please enter a valid amount greater than 0.'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
+    setState(() {
+      _isSimulated = false;
+    });
+
+    await Future.delayed(const Duration(milliseconds: 350));
+
     setState(() {
       _isSimulated = true;
     });
@@ -177,6 +273,9 @@ class _SimulatorScreenState extends State<SimulatorScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final user = context.watch<UserProvider>();
+
+    _ensureInitialAmount(user);
 
     return SingleChildScrollView(
       physics: const BouncingScrollPhysics(
@@ -188,33 +287,35 @@ class _SimulatorScreenState extends State<SimulatorScreen> {
         children: [
           const SectionHeader(
             title: '✨ Future You',
-            subtitle: 'Visualize the long-term impact of today\'s choices',
+            subtitle: 'Visualize the long-term impact of today’s choices',
           ),
           const SizedBox(height: 24),
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             child: Row(
               children: List.generate(_tabs.length, (index) {
-                return _buildTab(theme, index);
+                return _buildTab(theme, index, user);
               }),
             ),
           ),
           const SizedBox(height: 24),
-          _buildScenarioInputCard(theme),
+          _buildScenarioInputCard(theme, user),
           if (_isSimulated) ...[
             const SizedBox(height: 24),
-            _buildChartCard(theme),
+            _buildScoreComparisonCard(theme, user),
             const SizedBox(height: 20),
-            _buildImpactSummaryCard(theme),
+            _buildChartCard(theme, user),
             const SizedBox(height: 20),
-            _buildFinMentorAdvice(theme),
+            _buildImpactSummaryCard(theme, user),
+            const SizedBox(height: 20),
+            _buildFinMentorAdvice(theme, user),
           ],
         ],
       ),
     );
   }
 
-  Widget _buildTab(ThemeData theme, int index) {
+  Widget _buildTab(ThemeData theme, int index, UserProvider user) {
     final isSelected = _selectedTabIndex == index;
 
     return Padding(
@@ -226,6 +327,7 @@ class _SimulatorScreenState extends State<SimulatorScreen> {
           setState(() {
             _selectedTabIndex = index;
             _isSimulated = false;
+            _setScenarioAmount(_recommendedAmount(user));
           });
         },
         selectedColor: AppColors.primaryLight,
@@ -248,7 +350,7 @@ class _SimulatorScreenState extends State<SimulatorScreen> {
     );
   }
 
-  Widget _buildScenarioInputCard(ThemeData theme) {
+  Widget _buildScenarioInputCard(ThemeData theme, UserProvider user) {
     return AppCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -261,31 +363,97 @@ class _SimulatorScreenState extends State<SimulatorScreen> {
             ),
           ),
           const SizedBox(height: 18),
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: AppColors.background,
-              borderRadius: BorderRadius.circular(18),
+          Text(
+            _scenarioLabel,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: AppColors.textSecondary,
+              fontWeight: FontWeight.w700,
             ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  _scenarioLabel,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: AppColors.textSecondary,
-                    fontWeight: FontWeight.w700,
-                  ),
+          ),
+          const SizedBox(height: 8),
+          TextField(
+            controller: _amountController,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            decoration: InputDecoration(
+              prefixText: 'RM ',
+              hintText: _scenarioHint,
+              filled: true,
+              fillColor: const Color(0xFFF7F9F8),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(16),
+                borderSide: BorderSide.none,
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(16),
+                borderSide: BorderSide.none,
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(16),
+                borderSide: const BorderSide(
+                  color: AppColors.primary,
+                  width: 1.2,
                 ),
-                Text(
-                  _scenarioAmountText,
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    color: AppColors.textPrimary,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-              ],
+              ),
             ),
+            onChanged: (value) {
+              final formatted = formatCurrencyInput(value);
+
+              if (formatted != value) {
+                _amountController.value = TextEditingValue(
+                  text: formatted,
+                  selection: TextSelection.collapsed(offset: formatted.length),
+                );
+              }
+
+              if (_isSimulated) {
+                setState(() {});
+              }
+            },
+          ),
+          const SizedBox(height: 14),
+          Text(
+            'Scenario Presets',
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: AppColors.textSecondary,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 10,
+            runSpacing: 10,
+            children: [
+              _presetChip(
+                label: 'Recommended',
+                amount: _recommendedAmount(user),
+                onTap: () {
+                  setState(() {
+                    _setScenarioAmount(_recommendedAmount(user));
+                    _isSimulated = false;
+                  });
+                },
+              ),
+              _presetChip(
+                label: 'Conservative',
+                amount: _conservativeAmount(user),
+                onTap: () {
+                  setState(() {
+                    _setScenarioAmount(_conservativeAmount(user));
+                    _isSimulated = false;
+                  });
+                },
+              ),
+              _presetChip(
+                label: 'Aggressive',
+                amount: _aggressiveAmount(user),
+                onTap: () {
+                  setState(() {
+                    _setScenarioAmount(_aggressiveAmount(user));
+                    _isSimulated = false;
+                  });
+                },
+              ),
+            ],
           ),
           const SizedBox(height: 20),
           Text(
@@ -331,15 +499,144 @@ class _SimulatorScreenState extends State<SimulatorScreen> {
           PrimaryButton(
             label:
                 _isSimulated ? 'Update Simulation' : 'Simulate Future Impact',
-            onTap: _runSimulation,
+            onTap: () => _runSimulation(user),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildChartCard(ThemeData theme) {
-    final maxY = _getMaxY();
+  Widget _presetChip({
+    required String label,
+    required double amount,
+    required VoidCallback onTap,
+  }) {
+    return ActionChip(
+      label: Text(
+        '$label · RM ${amount.toStringAsFixed(0)}',
+        style: const TextStyle(fontWeight: FontWeight.w700),
+      ),
+      backgroundColor: AppColors.subtleSuccessBg,
+      side: BorderSide.none,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(14),
+      ),
+      onPressed: onTap,
+    );
+  }
+
+  Widget _buildScoreComparisonCard(ThemeData theme, UserProvider user) {
+    final currentScore = (user.resilienceScore / 10).clamp(0.0, 10.0);
+    final projectedScore =
+        (_projectedResilienceScore(user) / 10).clamp(0.0, 10.0);
+    final delta = projectedScore - currentScore;
+    final deltaPositive = delta >= 0;
+
+    return AppCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Score Comparison',
+            style: theme.textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.w800,
+              color: AppColors.textPrimary,
+            ),
+          ),
+          const SizedBox(height: 18),
+          Row(
+            children: [
+              Expanded(
+                child: _scoreBox(
+                  theme,
+                  label: 'Current',
+                  value: currentScore.toStringAsFixed(1),
+                  color: AppColors.textPrimary,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _scoreBox(
+                  theme,
+                  label: 'Projected',
+                  value: projectedScore.toStringAsFixed(1),
+                  color: deltaPositive ? AppColors.success : AppColors.danger,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: deltaPositive
+                  ? AppColors.subtleSuccessBg
+                  : AppColors.subtleWarningBg,
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Row(
+              children: [
+                Text(
+                  deltaPositive ? '📈' : '⚠️',
+                  style: const TextStyle(fontSize: 18),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    deltaPositive
+                        ? 'This scenario may improve your resilience by ${delta.abs().toStringAsFixed(1)} points out of 10.'
+                        : 'This scenario may reduce your resilience by ${delta.abs().toStringAsFixed(1)} points out of 10.',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: AppColors.textPrimary,
+                      fontWeight: FontWeight.w600,
+                      height: 1.45,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _scoreBox(
+    ThemeData theme, {
+    required String label,
+    required String value,
+    required Color color,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 14),
+      decoration: BoxDecoration(
+        color: AppColors.background,
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: Column(
+        children: [
+          Text(
+            label,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: AppColors.textSecondary,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            value,
+            style: theme.textTheme.headlineSmall?.copyWith(
+              color: color,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildChartCard(ThemeData theme, UserProvider user) {
+    final maxY = _getMaxY(user);
 
     return AppCard(
       child: Column(
@@ -416,9 +713,9 @@ class _SimulatorScreenState extends State<SimulatorScreen> {
                   ),
                 ),
                 lineBarsData: [
-                  _lineData(_getSavingsSpots(), AppColors.primary),
+                  _lineData(_getSavingsSpots(user), AppColors.primary),
                   if (_selectedTabIndex != 1)
-                    _lineData(_getDebtSpots(), AppColors.danger),
+                    _lineData(_getDebtSpots(user), AppColors.danger),
                 ],
               ),
             ),
@@ -440,8 +737,8 @@ class _SimulatorScreenState extends State<SimulatorScreen> {
         show: true,
         gradient: LinearGradient(
           colors: [
-            color.withValues(alpha: 0.18),
-            color.withValues(alpha: 0.0),
+            color.withOpacity(0.18),
+            color.withOpacity(0.0),
           ],
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
@@ -450,8 +747,10 @@ class _SimulatorScreenState extends State<SimulatorScreen> {
     );
   }
 
-  Widget _buildImpactSummaryCard(ThemeData theme) {
-    final netPositive = _netImpact >= 0;
+  Widget _buildImpactSummaryCard(ThemeData theme, UserProvider user) {
+    final netImpact = _netImpact(user);
+    final netPositive = netImpact >= 0;
+    final riskDelta = _riskDeltaText(user);
 
     return AppCard(
       child: IntrinsicHeight(
@@ -460,15 +759,17 @@ class _SimulatorScreenState extends State<SimulatorScreen> {
             _impactMetric(
               theme,
               'NET IMPACT',
-              '${netPositive ? '+' : '-'}RM ${_netImpact.abs().toStringAsFixed(0)}',
+              '${netPositive ? '+' : '-'}RM ${netImpact.abs().toStringAsFixed(0)}',
               netPositive ? AppColors.success : AppColors.danger,
             ),
             const VerticalDivider(width: 32),
             _impactMetric(
               theme,
               'SCORE Δ',
-              _riskDeltaText,
-              _selectedTabIndex == 2 ? AppColors.danger : AppColors.info,
+              riskDelta,
+              _projectedScoreDelta(user) >= 0
+                  ? AppColors.info
+                  : AppColors.danger,
             ),
           ],
         ),
@@ -506,7 +807,7 @@ class _SimulatorScreenState extends State<SimulatorScreen> {
     );
   }
 
-  Widget _buildFinMentorAdvice(ThemeData theme) {
+  Widget _buildFinMentorAdvice(ThemeData theme, UserProvider user) {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -535,9 +836,9 @@ class _SimulatorScreenState extends State<SimulatorScreen> {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  _adviceText,
+                  _adviceText(user),
                   style: theme.textTheme.bodyMedium?.copyWith(
-                    color: Colors.white.withValues(alpha: 0.9),
+                    color: Colors.white.withOpacity(0.9),
                     height: 1.5,
                     fontWeight: FontWeight.w500,
                   ),
@@ -582,4 +883,24 @@ class MathUtils {
     }
     return result;
   }
+}
+
+String formatCurrencyInput(String value) {
+  final number = int.tryParse(value.replaceAll(',', ''));
+  if (number == null) return value;
+
+  final text = number.toString();
+  final buffer = StringBuffer();
+  int count = 0;
+
+  for (int i = text.length - 1; i >= 0; i--) {
+    buffer.write(text[i]);
+    count++;
+
+    if (count % 3 == 0 && i != 0) {
+      buffer.write(',');
+    }
+  }
+
+  return buffer.toString().split('').reversed.join();
 }

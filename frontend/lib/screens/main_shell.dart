@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:curved_navigation_bar/curved_navigation_bar.dart';
+import 'package:provider/provider.dart';
 
 import '../theme/app_theme.dart';
+import '../providers/user_provider.dart';
 
 // Main tab screens
 import 'dashboard_screen.dart';
@@ -30,18 +32,31 @@ class _MainShellState extends State<MainShell> {
       GlobalKey<CurvedNavigationBarState>();
 
   int _currentIndex = ShellTab.dashboard.tabIndex;
+  int _lastMainTabIndex = ShellTab.dashboard.tabIndex;
+
+  bool _isMainTab(int index) => index >= 0 && index <= 4;
 
   void _resetToDashboard() {
     setState(() {
       _currentIndex = ShellTab.dashboard.tabIndex;
+      _lastMainTabIndex = ShellTab.dashboard.tabIndex;
     });
     _navKey.currentState?.setPage(ShellTab.dashboard.tabIndex);
   }
 
+  void _goBackToPreviousMainTab() {
+    setState(() {
+      _currentIndex = _lastMainTabIndex;
+    });
+    _navKey.currentState?.setPage(_lastMainTabIndex);
+  }
+
   void _onTabTapped(int index) {
     if (_currentIndex == index) return;
+
     setState(() {
       _currentIndex = index;
+      _lastMainTabIndex = index;
     });
   }
 
@@ -49,7 +64,12 @@ class _MainShellState extends State<MainShell> {
     if (_currentIndex == index) return;
 
     setState(() {
-      _currentIndex = index;
+      if (_isMainTab(index)) {
+        _currentIndex = index;
+        _lastMainTabIndex = index;
+      } else {
+        _currentIndex = index;
+      }
     });
 
     if (_isMainTab(index)) {
@@ -57,13 +77,9 @@ class _MainShellState extends State<MainShell> {
     }
   }
 
-  bool _isMainTab(int index) => index >= 0 && index <= 4;
-
   bool _showBottomNav() => _isMainTab(_currentIndex);
 
-  bool _showAppBar() {
-    return _isMainTab(_currentIndex);
-  }
+  bool _showAppBar() => _isMainTab(_currentIndex);
 
   Widget _getActiveScreen() {
     switch (_currentIndex) {
@@ -78,18 +94,18 @@ class _MainShellState extends State<MainShell> {
       case 4:
         return const ResilienceScreen();
       case 6:
-        return IncomeScreen(onBack: _resetToDashboard);
+        return IncomeScreen(onBack: _goBackToPreviousMainTab);
       case 7:
-        return SpentScreen(onBack: _resetToDashboard);
+        return SpentScreen(onBack: _goBackToPreviousMainTab);
       case 8:
-        return SavedScreen(onBack: _resetToDashboard);
+        return SavedScreen(onBack: _goBackToPreviousMainTab);
       case 9:
-        return NotificationsScreen(onBack: _resetToDashboard);
+        return NotificationsScreen(onBack: _goBackToPreviousMainTab);
       case 10:
-        return ProfileScreen(onBack: _resetToDashboard);
+        return ProfileScreen(onBack: _goBackToPreviousMainTab);
       case 11:
         return SearchScreen(
-          onBack: _resetToDashboard,
+          onBack: _goBackToPreviousMainTab,
           onNavigate: _jumpToTab,
         );
       default:
@@ -132,7 +148,11 @@ class _MainShellState extends State<MainShell> {
       canPop: _currentIndex == ShellTab.dashboard.tabIndex,
       onPopInvokedWithResult: (didPop, result) {
         if (!didPop && _currentIndex != ShellTab.dashboard.tabIndex) {
-          _resetToDashboard();
+          if (_isMainTab(_currentIndex)) {
+            _resetToDashboard();
+          } else {
+            _goBackToPreviousMainTab();
+          }
         }
       },
       child: Scaffold(
@@ -186,6 +206,13 @@ class _MainShellState extends State<MainShell> {
 
   PreferredSizeWidget _buildAppBar(BuildContext context) {
     final theme = Theme.of(context);
+    final user = context.watch<UserProvider>();
+
+    final firstName = user.userName.trim().isEmpty
+        ? 'User'
+        : user.userName.trim().split(' ').first;
+
+    final initial = firstName[0].toUpperCase();
 
     return AppBar(
       backgroundColor: AppColors.background,
@@ -228,12 +255,17 @@ class _MainShellState extends State<MainShell> {
         ),
         GestureDetector(
           onTap: () => _jumpToTab(10),
-          child: const Padding(
-            padding: EdgeInsets.only(right: 16, left: 8),
+          child: Padding(
+            padding: const EdgeInsets.only(right: 16, left: 8),
             child: CircleAvatar(
               radius: 17,
-              backgroundImage: NetworkImage(
-                'https://i.pravatar.cc/150?u=finmentor-user',
+              backgroundColor: AppColors.primary.withOpacity(0.14),
+              child: Text(
+                initial,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: AppColors.primary,
+                  fontWeight: FontWeight.w800,
+                ),
               ),
             ),
           ),

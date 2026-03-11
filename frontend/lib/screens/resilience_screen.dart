@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../providers/user_provider.dart';
 import '../theme/app_theme.dart';
 import '../widgets/app_widgets.dart';
 
@@ -15,7 +17,8 @@ class _ResilienceScreenState extends State<ResilienceScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final metrics = _buildMetrics();
+    final user = context.watch<UserProvider>();
+    final metrics = _buildMetrics(user);
 
     return SingleChildScrollView(
       physics: const BouncingScrollPhysics(
@@ -27,80 +30,75 @@ class _ResilienceScreenState extends State<ResilienceScreen> {
         children: [
           _buildHeader(theme),
           const SizedBox(height: 24),
-          _buildMainScoreCard(theme),
+          _buildMainScoreCard(theme, user),
           const SizedBox(height: 28),
           _buildBreakdownHeader(theme),
           const SizedBox(height: 16),
           _buildMetricsList(theme, metrics),
           const SizedBox(height: 28),
-          _buildAIAdviceCard(theme),
+          _buildAIAdviceCard(theme, user),
         ],
       ),
     );
   }
 
-  List<ResilienceMetric> _buildMetrics() {
-    if (_isStressTestActive) {
-      return const [
-        ResilienceMetric(
-          emoji: '💰',
-          title: 'Emergency Fund',
-          score: 3.0,
-          color: AppColors.danger,
-          description: 'Covers only 45 days in a job loss scenario.',
-        ),
-        ResilienceMetric(
-          emoji: '🛡️',
-          title: 'Insurance Coverage',
-          score: 4.0,
-          color: AppColors.warning,
-          description: 'Basic protection only — no income replacement buffer.',
-        ),
-        ResilienceMetric(
-          emoji: '📉',
-          title: 'Debt-to-Income',
-          score: 5.0,
-          color: AppColors.warning,
-          description: 'Debt becomes harder to manage when income drops.',
-        ),
-        ResilienceMetric(
-          emoji: '💸',
-          title: 'Monthly Savings',
-          score: 6.0,
-          color: AppColors.info,
-          description: 'Savings habit helps, but not enough for a major shock.',
-        ),
-      ];
-    }
+  List<ResilienceMetric> _buildMetrics(UserProvider user) {
+    final income = user.income;
+    final expenses = user.expenses;
+    final bnpl = user.bnplCommitments;
+    final savings = user.currentSavings;
+    final goal = user.savingsGoal;
 
-    return const [
+    final testedIncome = _isStressTestActive ? income * 0.6 : income;
+    final testedAvailable = testedIncome - expenses - bnpl;
+
+    final emergencyMonths = expenses > 0 ? savings / expenses : 0.0;
+    final bnplRatio = testedIncome > 0 ? bnpl / testedIncome : 0.0;
+    final savingsRate =
+        testedIncome > 0 ? (testedAvailable / testedIncome) : 0.0;
+    final goalProgress = goal > 0 ? (savings / goal).clamp(0.0, 1.0) : 0.0;
+
+    final emergencyScore = _scoreFromMonths(emergencyMonths);
+    final debtScore = _scoreFromBnplRatio(bnplRatio);
+    final monthlySavingsScore = _scoreFromSavingsRate(savingsRate);
+    final goalScore = _scoreFromGoalProgress(goalProgress);
+
+    return [
       ResilienceMetric(
-        emoji: '💰',
-        title: 'Emergency Fund',
-        score: 4.0,
-        color: AppColors.danger,
-        description: 'Covers 1.5 months — target: 6 months.',
+        emoji: '🛟',
+        title: 'Emergency Buffer',
+        score: emergencyScore,
+        color: _scoreColor(emergencyScore),
+        description: emergencyMonths <= 0
+            ? 'You do not yet have a usable emergency buffer.'
+            : 'Your current savings can cover about ${emergencyMonths.toStringAsFixed(1)} months of expenses.',
       ),
       ResilienceMetric(
-        emoji: '🛡️',
-        title: 'Insurance Coverage',
-        score: 5.0,
-        color: AppColors.warning,
-        description: 'Basic health only — no income protection.',
-      ),
-      ResilienceMetric(
-        emoji: '📉',
-        title: 'Debt-to-Income',
-        score: 7.0,
-        color: AppColors.primary,
-        description: '22% — still within a manageable range.',
+        emoji: '💳',
+        title: 'Debt Pressure',
+        score: debtScore,
+        color: _scoreColor(debtScore),
+        description: bnpl <= 0
+            ? 'You currently have no BNPL debt pressure.'
+            : 'BNPL commitments use ${(bnplRatio * 100).toStringAsFixed(0)}% of your tested income.',
       ),
       ResilienceMetric(
         emoji: '💸',
-        title: 'Monthly Savings',
-        score: 8.0,
-        color: AppColors.info,
-        description: '20% of income — a strong savings habit.',
+        title: 'Monthly Saving Capacity',
+        score: monthlySavingsScore,
+        color: _scoreColor(monthlySavingsScore),
+        description: testedAvailable >= 0
+            ? 'You still have ${_formatCurrency(testedAvailable)} left after expenses and BNPL.'
+            : 'You are overspending by ${_formatCurrency(testedAvailable.abs())} under this scenario.',
+      ),
+      ResilienceMetric(
+        emoji: '🎯',
+        title: 'Goal Progress',
+        score: goalScore,
+        color: _scoreColor(goalScore),
+        description: goal > 0
+            ? 'You have completed ${(goalProgress * 100).toStringAsFixed(0)}% of your current savings goal.'
+            : 'Set a savings goal to track your resilience progress more clearly.',
       ),
     ];
   }
@@ -112,7 +110,7 @@ class _ResilienceScreenState extends State<ResilienceScreen> {
         const Expanded(
           child: SectionHeader(
             title: '🛡️ Resilience Score',
-            subtitle: 'Financial health beyond your balance',
+            subtitle: 'Financial strength beyond your account balance',
           ),
         ),
         const SizedBox(width: 12),
@@ -142,31 +140,45 @@ class _ResilienceScreenState extends State<ResilienceScreen> {
     );
   }
 
-  Widget _buildMainScoreCard(ThemeData theme) {
-    final score = _isStressTestActive ? 4.8 : 6.2;
-    final scoreColor =
-        _isStressTestActive ? AppColors.danger : AppColors.warning;
+  Widget _buildMainScoreCard(ThemeData theme, UserProvider user) {
+    final baseScore = user.resilienceScore / 10;
+    final stressAdjustedScore =
+        (baseScore - _stressPenalty(user)).clamp(0.0, 10.0);
+    final displayedScore =
+        _isStressTestActive ? stressAdjustedScore : baseScore;
+
+    final scoreColor = displayedScore >= 7.5
+        ? AppColors.success
+        : displayedScore >= 5
+            ? AppColors.warning
+            : AppColors.danger;
 
     final label = _isStressTestActive
-        ? '⚠️ HIGH RISK IN RECESSION'
-        : '⚡ MODERATE RESILIENCE';
+        ? _stressLabel(displayedScore)
+        : _normalLabel(displayedScore);
 
-    final labelBg =
-        _isStressTestActive ? AppColors.danger : AppColors.subtleWarningBg;
+    final labelBg = displayedScore >= 7.5
+        ? AppColors.subtleSuccessBg
+        : displayedScore >= 5
+            ? AppColors.subtleWarningBg
+            : const Color(0xFFFEE2E2);
 
-    final labelTextColor =
-        _isStressTestActive ? Colors.white : AppColors.warning;
+    final labelTextColor = displayedScore >= 7.5
+        ? AppColors.success
+        : displayedScore >= 5
+            ? AppColors.warning
+            : AppColors.danger;
 
     final description = _isStressTestActive
-        ? 'In a job loss scenario, you may only have about 45 days of financial safety.'
-        : 'You can survive about 3.1 months without income based on your current profile.';
+        ? _stressDescription(user)
+        : _normalDescription(user);
 
     return AppCard(
       child: Column(
         children: [
           const SizedBox(height: 6),
           TweenAnimationBuilder<double>(
-            tween: Tween<double>(begin: 0, end: score / 10),
+            tween: Tween<double>(begin: 0, end: displayedScore / 10),
             duration: const Duration(milliseconds: 1200),
             curve: Curves.easeOutCubic,
             builder: (context, value, child) {
@@ -284,7 +296,7 @@ class _ResilienceScreenState extends State<ResilienceScreen> {
                                 ),
                               ),
                               Text(
-                                '${metric.score.toInt()}/10',
+                                '${metric.score.toStringAsFixed(1)}/10',
                                 style: theme.textTheme.bodyMedium?.copyWith(
                                   color: metric.color,
                                   fontWeight: FontWeight.w900,
@@ -335,21 +347,11 @@ class _ResilienceScreenState extends State<ResilienceScreen> {
     );
   }
 
-  Widget _buildAIAdviceCard(ThemeData theme) {
-    final title =
-        _isStressTestActive ? 'Path to Safer Recovery' : 'Path to 8.5 (Robust)';
-
-    final adviceItems = _isStressTestActive
-        ? const [
-            'Build a 3-month emergency fund as the first priority.',
-            'Reduce fixed monthly commitments before taking new debt.',
-            'Add income protection or a basic backup coverage plan.',
-          ]
-        : const [
-            'Boost emergency fund to RM 12,500.',
-            'Move savings into a higher-yield savings option.',
-            'Consolidate short-term BNPL commitments into a simpler plan.',
-          ];
+  Widget _buildAIAdviceCard(ThemeData theme, UserProvider user) {
+    final adviceItems = _generateAdvice(user);
+    final title = _isStressTestActive
+        ? 'Safer Recovery Plan'
+        : 'How to Strengthen Your Score';
 
     return Container(
       padding: const EdgeInsets.all(24),
@@ -362,7 +364,7 @@ class _ResilienceScreenState extends State<ResilienceScreen> {
         borderRadius: BorderRadius.circular(28),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF1E1B4B).withValues(alpha: 0.35),
+            color: const Color(0xFF1E1B4B).withOpacity(0.35),
             blurRadius: 20,
             offset: const Offset(0, 10),
           ),
@@ -376,7 +378,7 @@ class _ResilienceScreenState extends State<ResilienceScreen> {
               Container(
                 padding: const EdgeInsets.all(6),
                 decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.10),
+                  color: Colors.white.withOpacity(0.10),
                   shape: BoxShape.circle,
                 ),
                 child: const Icon(
@@ -411,11 +413,14 @@ class _ResilienceScreenState extends State<ResilienceScreen> {
             width: double.infinity,
             child: ElevatedButton(
               onPressed: () {
+                final message = _isStressTestActive
+                    ? 'Stress-test action plan generated from your current financial profile.'
+                    : 'Personalized action plan generated from your current resilience profile.';
+
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text(
-                      'Your action plan would be generated here.',
-                    ),
+                  SnackBar(
+                    content: Text(message),
+                    behavior: SnackBarBehavior.floating,
                   ),
                 );
               },
@@ -455,6 +460,147 @@ class _ResilienceScreenState extends State<ResilienceScreen> {
         ],
       ),
     );
+  }
+
+  List<String> _generateAdvice(UserProvider user) {
+    final tips = <String>[];
+
+    final availableToSave = user.availableToSave;
+    final bnplRatio =
+        user.income > 0 ? user.bnplCommitments / user.income : 0.0;
+    final emergencyMonths =
+        user.expenses > 0 ? user.currentSavings / user.expenses : 0.0;
+
+    if (emergencyMonths < 3) {
+      tips.add(
+          'Build your emergency fund toward at least 3 months of expenses first.');
+    }
+
+    if (bnplRatio >= 0.2) {
+      tips.add(
+          'Reduce BNPL commitments below 20% of your income to lower debt pressure.');
+    }
+
+    if (availableToSave <= 0) {
+      tips.add(
+          'Cut non-essential monthly spending to create positive saving capacity.');
+    } else if (availableToSave < user.savingsGoal * 0.2) {
+      tips.add(
+          'Increase your monthly transfer into savings to reach your goal faster.');
+    }
+
+    if (user.currentSavings < user.savingsGoal && user.savingsGoal > 0) {
+      tips.add(
+          'Stay consistent with savings contributions so your goal progress keeps moving.');
+    }
+
+    if (tips.isEmpty) {
+      tips.add(
+          'Your financial profile looks healthy. Keep maintaining your current saving discipline.');
+      tips.add(
+          'Review your savings goal regularly so your resilience grows with your income.');
+      tips.add(
+          'Consider growing idle savings into a higher-yield but low-risk account.');
+    }
+
+    return tips.take(3).toList();
+  }
+
+  double _stressPenalty(UserProvider user) {
+    double penalty = 0.8;
+
+    final expenseRatio = user.income > 0 ? user.expenses / user.income : 1.0;
+    final bnplRatio =
+        user.income > 0 ? user.bnplCommitments / user.income : 0.0;
+    final emergencyMonths =
+        user.expenses > 0 ? user.currentSavings / user.expenses : 0.0;
+
+    if (expenseRatio > 0.7) penalty += 1.0;
+    if (bnplRatio > 0.2) penalty += 0.8;
+    if (emergencyMonths < 1) penalty += 0.9;
+    if (emergencyMonths < 0.5) penalty += 0.5;
+
+    return penalty;
+  }
+
+  String _normalLabel(double score) {
+    if (score >= 8) return '✅ ROBUST RESILIENCE';
+    if (score >= 5) return '⚡ MODERATE RESILIENCE';
+    return '⚠️ FRAGILE RESILIENCE';
+  }
+
+  String _stressLabel(double score) {
+    if (score >= 7) return '✅ STABLE UNDER STRESS';
+    if (score >= 4.5) return '⚠️ VULNERABLE IN STRESS';
+    return '🚨 HIGH RISK IN STRESS';
+  }
+
+  String _normalDescription(UserProvider user) {
+    final months =
+        user.expenses > 0 ? user.currentSavings / user.expenses : 0.0;
+
+    if (months <= 0) {
+      return 'You do not yet have an emergency buffer. Building savings will improve your resilience quickly.';
+    }
+
+    return 'Based on your current profile, your savings can cover about ${months.toStringAsFixed(1)} months of expenses.';
+  }
+
+  String _stressDescription(UserProvider user) {
+    final stressedIncome = user.income * 0.6;
+    final remaining = stressedIncome - user.expenses - user.bnplCommitments;
+
+    if (remaining < 0) {
+      return 'In a stress scenario with reduced income, your monthly finances would turn negative by ${_formatCurrency(remaining.abs())}.';
+    }
+
+    return 'Even under a lower-income scenario, you would still keep about ${_formatCurrency(remaining)} of monthly breathing room.';
+  }
+
+  double _scoreFromMonths(double months) {
+    if (months >= 6) return 10.0;
+    if (months >= 4) return 8.0;
+    if (months >= 3) return 7.0;
+    if (months >= 2) return 5.5;
+    if (months >= 1) return 4.0;
+    if (months > 0) return 2.5;
+    return 1.0;
+  }
+
+  double _scoreFromBnplRatio(double ratio) {
+    if (ratio <= 0) return 10.0;
+    if (ratio <= 0.1) return 8.5;
+    if (ratio <= 0.2) return 6.5;
+    if (ratio <= 0.3) return 4.0;
+    return 2.0;
+  }
+
+  double _scoreFromSavingsRate(double rate) {
+    if (rate >= 0.3) return 10.0;
+    if (rate >= 0.2) return 8.0;
+    if (rate >= 0.1) return 6.0;
+    if (rate >= 0.05) return 4.0;
+    if (rate >= 0) return 2.5;
+    return 1.0;
+  }
+
+  double _scoreFromGoalProgress(double progress) {
+    if (progress >= 1) return 10.0;
+    if (progress >= 0.75) return 8.0;
+    if (progress >= 0.5) return 6.5;
+    if (progress >= 0.25) return 4.5;
+    if (progress > 0) return 3.0;
+    return 1.5;
+  }
+
+  Color _scoreColor(double score) {
+    if (score >= 7.5) return AppColors.success;
+    if (score >= 5) return AppColors.warning;
+    return AppColors.danger;
+  }
+
+  String _formatCurrency(double value) {
+    return 'RM ${value.toStringAsFixed(0)}';
   }
 }
 

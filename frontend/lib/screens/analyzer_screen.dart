@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
+import 'package:provider/provider.dart';
+
+import '../providers/user_provider.dart';
 import '../theme/app_theme.dart';
 import '../widgets/app_widgets.dart';
 
@@ -12,11 +15,12 @@ class AnalyzerScreen extends StatefulWidget {
 
 class _AnalyzerScreenState extends State<AnalyzerScreen> {
   bool _analyzed = false;
+  bool _initialized = false;
 
-  final _income = TextEditingController(text: '3500');
-  final _expenses = TextEditingController(text: '2100');
-  final _bnpl = TextEditingController(text: '700');
-  final _savings = TextEditingController(text: '700');
+  late final TextEditingController _income;
+  late final TextEditingController _expenses;
+  late final TextEditingController _bnpl;
+  late final TextEditingController _monthlySavingsPlan;
 
   static const _titleStyle = TextStyle(
     fontSize: 12,
@@ -24,10 +28,39 @@ class _AnalyzerScreenState extends State<AnalyzerScreen> {
     color: Colors.white,
   );
 
+  @override
+  void initState() {
+    super.initState();
+    _income = TextEditingController();
+    _expenses = TextEditingController();
+    _bnpl = TextEditingController();
+    _monthlySavingsPlan = TextEditingController();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+
+    if (_initialized) return;
+
+    final user = context.read<UserProvider>();
+
+    _income.text = _formatInitial(user.income, fallback: 3500);
+    _expenses.text = _formatInitial(user.expenses, fallback: 2100);
+    _bnpl.text = _formatInitial(user.bnplCommitments, fallback: 700);
+
+    final suggestedMonthlySavings =
+        user.availableToSave > 0 ? user.availableToSave : 700.0;
+    _monthlySavingsPlan.text =
+        _formatInitial(suggestedMonthlySavings, fallback: 700);
+
+    _initialized = true;
+  }
+
   double get _valIncome => double.tryParse(_income.text.trim()) ?? 0;
   double get _valExp => double.tryParse(_expenses.text.trim()) ?? 0;
   double get _valBnpl => double.tryParse(_bnpl.text.trim()) ?? 0;
-  double get _valSav => double.tryParse(_savings.text.trim()) ?? 0;
+  double get _valSav => double.tryParse(_monthlySavingsPlan.text.trim()) ?? 0;
 
   double get _safeIncome => _valIncome <= 0 ? 1 : _valIncome;
 
@@ -38,7 +71,7 @@ class _AnalyzerScreenState extends State<AnalyzerScreen> {
     _income.dispose();
     _expenses.dispose();
     _bnpl.dispose();
-    _savings.dispose();
+    _monthlySavingsPlan.dispose();
     super.dispose();
   }
 
@@ -49,9 +82,30 @@ class _AnalyzerScreenState extends State<AnalyzerScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Please enter a valid monthly income greater than 0.'),
+          behavior: SnackBarBehavior.floating,
         ),
       );
       return;
+    }
+
+    if (_valExp < 0 || _valBnpl < 0 || _valSav < 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Values cannot be negative.'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
+    final user = context.read<UserProvider>();
+
+    user.updateIncome(_valIncome);
+    user.updateExpenses(_valExp);
+    user.updateBnplCommitments(_valBnpl);
+
+    if (user.savingsGoal <= 0) {
+      user.updateSavingsGoal(_valSav > 0 ? _valSav * 6 : 1000);
     }
 
     setState(() {
@@ -101,7 +155,7 @@ class _AnalyzerScreenState extends State<AnalyzerScreen> {
         children: [
           const SectionHeader(
             title: '🔍 AI Spending Analyzer',
-            subtitle: 'Get a clear picture of where your money goes',
+            subtitle: 'Get a clearer picture of where your money goes',
           ),
           const SizedBox(height: 24),
           AppCard(
@@ -109,10 +163,18 @@ class _AnalyzerScreenState extends State<AnalyzerScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Enter Your Monthly Figures',
+                  'Review Your Monthly Figures',
                   style: theme.textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.w700,
                     color: AppColors.textPrimary,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'These values are prefilled from your financial setup, and you can adjust them anytime.',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: AppColors.textSecondary,
+                    height: 1.45,
                   ),
                 ),
                 const SizedBox(height: 20),
@@ -141,8 +203,8 @@ class _AnalyzerScreenState extends State<AnalyzerScreen> {
                 ),
                 const SizedBox(height: 14),
                 AppInputField(
-                  label: '🏦 Monthly Savings (RM)',
-                  controller: _savings,
+                  label: '🏦 Planned Monthly Savings (RM)',
+                  controller: _monthlySavingsPlan,
                   keyboardType: const TextInputType.numberWithOptions(
                     decimal: true,
                   ),
@@ -173,6 +235,7 @@ class _AnalyzerScreenState extends State<AnalyzerScreen> {
     return AppCard(
       color: healthy ? AppColors.subtleSuccessBg : AppColors.subtleWarningBg,
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
             padding: const EdgeInsets.all(12),
@@ -189,11 +252,12 @@ class _AnalyzerScreenState extends State<AnalyzerScreen> {
           Expanded(
             child: Text(
               healthy
-                  ? 'You still have RM ${freeCash.toStringAsFixed(0)} unallocated after expenses, BNPL, and savings.'
+                  ? 'You still have RM ${freeCash.toStringAsFixed(0)} unallocated after expenses, BNPL, and planned savings.'
                   : 'Your monthly commitments exceed your income by RM ${freeCash.abs().toStringAsFixed(0)}.',
               style: theme.textTheme.bodyMedium?.copyWith(
                 color: AppColors.textPrimary,
                 fontWeight: FontWeight.w600,
+                height: 1.45,
               ),
             ),
           ),
@@ -204,7 +268,11 @@ class _AnalyzerScreenState extends State<AnalyzerScreen> {
 
   Widget _buildResultsSection(ThemeData theme) {
     final bnplRatio = (_valBnpl / _safeIncome) * 100;
-    final isRisky = bnplRatio > 15;
+    final expenseRatio = (_valExp / _safeIncome) * 100;
+    final savingsRatio = (_valSav / _safeIncome) * 100;
+
+    final isBnplRisky = bnplRatio > 15;
+    final isExpenseHeavy = expenseRatio > 60;
     final monthsToSaveOneIncome =
         _valSav <= 0 ? double.infinity : (_valIncome / _valSav);
 
@@ -263,20 +331,32 @@ class _AnalyzerScreenState extends State<AnalyzerScreen> {
         ),
         const SizedBox(height: 20),
         InsightCard(
-          icon: isRisky ? '⚠️' : '🛡️',
-          text: isRisky
+          icon: isBnplRisky ? '⚠️' : '🛡️',
+          text: isBnplRisky
               ? 'BNPL is ${bnplRatio.toStringAsFixed(0)}% of income — above the safer 15% threshold.'
               : 'Your BNPL commitments are still within a healthier range.',
-          bgColor:
-              isRisky ? AppColors.subtleWarningBg : AppColors.subtleSuccessBg,
-          textColor: isRisky ? AppColors.warning : AppColors.success,
+          bgColor: isBnplRisky
+              ? AppColors.subtleWarningBg
+              : AppColors.subtleSuccessBg,
+          textColor: isBnplRisky ? AppColors.warning : AppColors.success,
         ),
         const SizedBox(height: 12),
         InsightCard(
-          icon: '💡',
+          icon: isExpenseHeavy ? '📉' : '💡',
+          text: isExpenseHeavy
+              ? 'Essential expenses already use ${expenseRatio.toStringAsFixed(0)}% of your income. Tightening spending could improve flexibility.'
+              : 'Your core spending is still at a more manageable share of income.',
+          bgColor: isExpenseHeavy
+              ? AppColors.subtleWarningBg
+              : AppColors.subtleInfoBg,
+          textColor: isExpenseHeavy ? AppColors.warning : AppColors.info,
+        ),
+        const SizedBox(height: 12),
+        InsightCard(
+          icon: '🏦',
           text: monthsToSaveOneIncome == double.infinity
-              ? 'You are not saving yet. Even a small monthly amount can improve your emergency readiness.'
-              : 'At this rate, it takes about ${monthsToSaveOneIncome.toStringAsFixed(1)} months to save one month of income.',
+              ? 'You are not saving monthly yet. Even a small planned amount can improve your emergency readiness.'
+              : 'At this rate, it takes about ${monthsToSaveOneIncome.toStringAsFixed(1)} months to save one month of income. Your planned savings rate is ${savingsRatio.toStringAsFixed(0)}%.',
           bgColor: AppColors.subtleInfoBg,
           textColor: AppColors.info,
         ),
@@ -292,7 +372,7 @@ class _AnalyzerScreenState extends State<AnalyzerScreen> {
       children: [
         _legendItem(theme, 'Expenses', AppColors.primary),
         _legendItem(theme, 'BNPL', AppColors.danger),
-        _legendItem(theme, 'Savings', AppColors.info),
+        _legendItem(theme, 'Savings Plan', AppColors.info),
       ],
     );
   }
@@ -319,5 +399,10 @@ class _AnalyzerScreenState extends State<AnalyzerScreen> {
         ),
       ],
     );
+  }
+
+  String _formatInitial(double value, {required double fallback}) {
+    final target = value > 0 ? value : fallback;
+    return target.toStringAsFixed(0);
   }
 }

@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
-
 import '../providers/user_provider.dart';
 import '../theme/app_theme.dart';
+import 'financial_setup_screen.dart';
 import 'login_screen.dart';
 
 class SignupScreen extends StatefulWidget {
@@ -21,6 +21,11 @@ class _SignupScreenState extends State<SignupScreen>
   final _email = TextEditingController();
   final _password = TextEditingController();
   final _confirm = TextEditingController();
+
+  final _nameFocus = FocusNode();
+  final _emailFocus = FocusNode();
+  final _passwordFocus = FocusNode();
+  final _confirmFocus = FocusNode();
 
   bool _obscure = true;
   bool _obscureConfirm = true;
@@ -49,12 +54,12 @@ class _SignupScreenState extends State<SignupScreen>
 
   void _calculateStrength() {
     double s = 0;
-    final p = _password.text;
+    final p = _password.text.trim();
 
     if (p.length >= 8) s += 0.25;
     if (p.contains(RegExp(r'[A-Z]'))) s += 0.25;
     if (p.contains(RegExp(r'[0-9]'))) s += 0.25;
-    if (p.contains(RegExp(r'[!@#$%^&*(),.?":{}|<>]'))) s += 0.25;
+    if (p.contains(RegExp(r'[!@#$%^&*(),.?":{}|<>_\-]'))) s += 0.25;
 
     if (mounted) {
       setState(() => _strength = s);
@@ -64,10 +69,17 @@ class _SignupScreenState extends State<SignupScreen>
   @override
   void dispose() {
     _password.removeListener(_calculateStrength);
+
     _name.dispose();
     _email.dispose();
     _password.dispose();
     _confirm.dispose();
+
+    _nameFocus.dispose();
+    _emailFocus.dispose();
+    _passwordFocus.dispose();
+    _confirmFocus.dispose();
+
     _animCtrl.dispose();
     super.dispose();
   }
@@ -91,7 +103,7 @@ class _SignupScreenState extends State<SignupScreen>
     setState(() => _loading = true);
 
     try {
-      await Future.delayed(const Duration(milliseconds: 1500));
+      await Future.delayed(const Duration(milliseconds: 1200));
 
       if (!mounted) return;
 
@@ -100,10 +112,13 @@ class _SignupScreenState extends State<SignupScreen>
 
       if (!mounted) return;
 
-      Navigator.pushNamedAndRemoveUntil(
+      Navigator.pushReplacement(
         context,
-        '/main',
-        (route) => false,
+        MaterialPageRoute(
+          builder: (_) => FinancialSetupScreen(
+            userName: _name.text.trim(),
+          ),
+        ),
       );
     } catch (_) {
       if (!mounted) return;
@@ -130,7 +145,8 @@ class _SignupScreenState extends State<SignupScreen>
   String? _validateEmail(String? value) {
     final text = value?.trim() ?? '';
     if (text.isEmpty) return 'Email is required';
-    if (!text.contains('@')) return 'Enter a valid email';
+    final emailRegex = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$');
+    if (!emailRegex.hasMatch(text)) return 'Enter a valid email';
     return null;
   }
 
@@ -148,11 +164,24 @@ class _SignupScreenState extends State<SignupScreen>
     return null;
   }
 
+  String get _strengthLabel {
+    if (_strength <= 0.25) return 'Weak password';
+    if (_strength <= 0.75) return 'Moderate password';
+    return 'Strong password';
+  }
+
+  Color get _strengthColor {
+    if (_strength <= 0.25) return AppColors.danger;
+    if (_strength <= 0.75) return AppColors.warning;
+    return AppColors.primary;
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
     return Scaffold(
+      resizeToAvoidBottomInset: true,
       body: Container(
         decoration: const BoxDecoration(
           gradient: LinearGradient(
@@ -172,7 +201,7 @@ class _SignupScreenState extends State<SignupScreen>
               physics: const BouncingScrollPhysics(
                 parent: AlwaysScrollableScrollPhysics(),
               ),
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
+              padding: const EdgeInsets.fromLTRB(24, 10, 24, 24),
               child: Form(
                 key: _formKey,
                 child: Column(
@@ -183,11 +212,8 @@ class _SignupScreenState extends State<SignupScreen>
                     _buildHeader(theme),
                     const SizedBox(height: 24),
                     _buildFormCard(theme),
-                    const SizedBox(height: 24),
-                    _buildSocialSignup(theme),
-                    const SizedBox(height: 24),
-                    _buildLoginLink(theme),
                     const SizedBox(height: 20),
+                    _buildLoginLink(theme),
                   ],
                 ),
               ),
@@ -201,10 +227,13 @@ class _SignupScreenState extends State<SignupScreen>
   Widget _buildBackButton() {
     return IconButton(
       onPressed: () => Navigator.maybePop(context),
-      icon: const Icon(Icons.arrow_back_ios_new_rounded,
-          color: Colors.white, size: 20),
+      icon: const Icon(
+        Icons.arrow_back_ios_new_rounded,
+        color: Colors.white,
+        size: 20,
+      ),
       style: IconButton.styleFrom(
-        backgroundColor: Colors.white.withValues(alpha: 0.10),
+        backgroundColor: Colors.white.withOpacity(0.10),
         padding: const EdgeInsets.all(12),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(12),
@@ -218,19 +247,23 @@ class _SignupScreenState extends State<SignupScreen>
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Create Account 🚀',
+          'Create your account',
           style: GoogleFonts.plusJakartaSans(
             color: Colors.white,
-            fontSize: 32,
+            fontSize: 31,
             fontWeight: FontWeight.w800,
             letterSpacing: -1,
+            height: 1.05,
           ),
         ),
         const SizedBox(height: 8),
         Text(
-          'Join the ASEAN youth financial revolution.',
-          style: theme.textTheme.bodyMedium?.copyWith(
-            color: Colors.white.withValues(alpha: 0.72),
+          'Start building smarter savings habits with AI-powered financial guidance.',
+          style: GoogleFonts.plusJakartaSans(
+            color: Colors.white.withOpacity(0.74),
+            fontSize: 14.5,
+            fontWeight: FontWeight.w500,
+            height: 1.5,
           ),
         ),
       ],
@@ -245,39 +278,68 @@ class _SignupScreenState extends State<SignupScreen>
         borderRadius: BorderRadius.circular(28),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.15),
-            blurRadius: 30,
-            offset: const Offset(0, 10),
+            color: Colors.black.withOpacity(0.14),
+            blurRadius: 28,
+            offset: const Offset(0, 12),
           ),
         ],
       ),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          Text(
+            'Set up your profile',
+            style: GoogleFonts.plusJakartaSans(
+              fontSize: 18,
+              fontWeight: FontWeight.w800,
+              color: AppColors.textPrimary,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'We’ll use this to personalize your financial insights and recommendations.',
+            style: GoogleFonts.plusJakartaSans(
+              fontSize: 13,
+              height: 1.5,
+              color: AppColors.textSecondary,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(height: 22),
           _buildTextField(
             theme: theme,
             label: 'FULL NAME',
             controller: _name,
+            focusNode: _nameFocus,
             hint: 'e.g. Amir Abdullah',
             icon: Icons.person_outline_rounded,
             validator: _validateName,
             textInputAction: TextInputAction.next,
+            onFieldSubmitted: (_) {
+              FocusScope.of(context).requestFocus(_emailFocus);
+            },
           ),
           const SizedBox(height: 18),
           _buildTextField(
             theme: theme,
             label: 'EMAIL ADDRESS',
             controller: _email,
+            focusNode: _emailFocus,
             hint: 'name@example.com',
             icon: Icons.alternate_email_rounded,
             keyboardType: TextInputType.emailAddress,
             validator: _validateEmail,
             textInputAction: TextInputAction.next,
+            onFieldSubmitted: (_) {
+              FocusScope.of(context).requestFocus(_passwordFocus);
+            },
           ),
           const SizedBox(height: 18),
           _buildTextField(
             theme: theme,
             label: 'PASSWORD',
             controller: _password,
+            focusNode: _passwordFocus,
             hint: 'At least 8 characters',
             icon: Icons.lock_outline_rounded,
             obscure: _obscure,
@@ -285,6 +347,9 @@ class _SignupScreenState extends State<SignupScreen>
             onToggle: () => setState(() => _obscure = !_obscure),
             validator: _validatePassword,
             textInputAction: TextInputAction.next,
+            onFieldSubmitted: (_) {
+              FocusScope.of(context).requestFocus(_confirmFocus);
+            },
           ),
           _buildStrengthIndicator(theme),
           const SizedBox(height: 18),
@@ -292,6 +357,7 @@ class _SignupScreenState extends State<SignupScreen>
             theme: theme,
             label: 'CONFIRM PASSWORD',
             controller: _confirm,
+            focusNode: _confirmFocus,
             hint: 'Repeat your password',
             icon: Icons.verified_user_outlined,
             obscure: _obscureConfirm,
@@ -299,6 +365,7 @@ class _SignupScreenState extends State<SignupScreen>
             onToggle: () => setState(() => _obscureConfirm = !_obscureConfirm),
             validator: _validateConfirmPassword,
             textInputAction: TextInputAction.done,
+            onFieldSubmitted: (_) => _signup(),
           ),
           const SizedBox(height: 20),
           _buildTermsCheckbox(theme),
@@ -310,45 +377,40 @@ class _SignupScreenState extends State<SignupScreen>
   }
 
   Widget _buildStrengthIndicator(ThemeData theme) {
-    final color = _strength <= 0.25
-        ? AppColors.danger
-        : _strength <= 0.75
-            ? AppColors.warning
-            : AppColors.primary;
+    final filledBars = (_strength * 4).round();
 
-    final label = _strength <= 0.25
-        ? 'Weak password'
-        : _strength <= 0.75
-            ? 'Moderate password'
-            : 'Strong password';
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const SizedBox(height: 8),
-        Row(
-          children: List.generate(4, (index) {
-            return Expanded(
-              child: Container(
-                height: 4,
-                margin: EdgeInsets.only(right: index < 3 ? 4 : 0),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(2),
-                  color:
-                      (index < (_strength * 4)) ? color : Colors.grey.shade200,
+    return Padding(
+      padding: const EdgeInsets.only(top: 10),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: List.generate(4, (index) {
+              return Expanded(
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 250),
+                  height: 6,
+                  margin: EdgeInsets.only(right: index < 3 ? 5 : 0),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(999),
+                    color: index < filledBars
+                        ? _strengthColor
+                        : Colors.grey.shade200,
+                  ),
                 ),
-              ),
-            );
-          }),
-        ),
-        const SizedBox(height: 6),
-        Text(
-          label,
-          style: theme.textTheme.bodySmall?.copyWith(
-            color: AppColors.textSecondary,
+              );
+            }),
           ),
-        ),
-      ],
+          const SizedBox(height: 8),
+          Text(
+            _strengthLabel,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: _strengthColor,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -356,6 +418,7 @@ class _SignupScreenState extends State<SignupScreen>
     required ThemeData theme,
     required String label,
     required TextEditingController controller,
+    required FocusNode focusNode,
     required String hint,
     required IconData icon,
     bool obscure = false,
@@ -364,6 +427,7 @@ class _SignupScreenState extends State<SignupScreen>
     TextInputType? keyboardType,
     TextInputAction? textInputAction,
     String? Function(String?)? validator,
+    void Function(String)? onFieldSubmitted,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -380,10 +444,12 @@ class _SignupScreenState extends State<SignupScreen>
         const SizedBox(height: 8),
         TextFormField(
           controller: controller,
+          focusNode: focusNode,
           obscureText: obscure,
           keyboardType: keyboardType,
           textInputAction: textInputAction,
           validator: validator,
+          onFieldSubmitted: onFieldSubmitted,
           style: theme.textTheme.bodyMedium?.copyWith(
             fontWeight: FontWeight.w600,
             color: AppColors.textPrimary,
@@ -403,9 +469,12 @@ class _SignupScreenState extends State<SignupScreen>
                   )
                 : null,
             hintText: hint,
-            hintStyle: TextStyle(color: Colors.grey[400], fontSize: 14),
+            hintStyle: TextStyle(
+              color: Colors.grey[400],
+              fontSize: 14,
+            ),
             filled: true,
-            fillColor: Colors.grey[50],
+            fillColor: const Color(0xFFF7F9F8),
             contentPadding: const EdgeInsets.symmetric(vertical: 16),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(16),
@@ -419,7 +488,7 @@ class _SignupScreenState extends State<SignupScreen>
               borderRadius: BorderRadius.circular(16),
               borderSide: const BorderSide(
                 color: AppColors.primary,
-                width: 1,
+                width: 1.2,
               ),
             ),
             errorStyle: const TextStyle(fontSize: 10),
@@ -447,13 +516,16 @@ class _SignupScreenState extends State<SignupScreen>
         ),
         const SizedBox(width: 12),
         Expanded(
-          child: Text(
-            'I agree to the Terms of Service & AI Privacy Policy',
-            style: theme.textTheme.bodySmall?.copyWith(
-              fontSize: 12,
-              color: AppColors.textPrimary,
-              fontWeight: FontWeight.w500,
-              height: 1.4,
+          child: Padding(
+            padding: const EdgeInsets.only(top: 2),
+            child: Text(
+              'I agree to the Terms of Service and AI Privacy Policy.',
+              style: theme.textTheme.bodySmall?.copyWith(
+                fontSize: 12,
+                color: AppColors.textPrimary,
+                fontWeight: FontWeight.w500,
+                height: 1.45,
+              ),
             ),
           ),
         ),
@@ -464,15 +536,16 @@ class _SignupScreenState extends State<SignupScreen>
   Widget _buildSignupButton(ThemeData theme) {
     return SizedBox(
       width: double.infinity,
-      height: 60,
+      height: 58,
       child: ElevatedButton(
         onPressed: _loading ? null : _signup,
         style: ElevatedButton.styleFrom(
           backgroundColor: AppColors.primary,
           foregroundColor: Colors.white,
+          disabledBackgroundColor: AppColors.primary.withOpacity(0.7),
           elevation: 0,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(18),
           ),
         ),
         child: _loading
@@ -481,67 +554,16 @@ class _SignupScreenState extends State<SignupScreen>
                 width: 20,
                 child: CircularProgressIndicator(
                   color: Colors.white,
-                  strokeWidth: 2,
+                  strokeWidth: 2.2,
                 ),
               )
             : Text(
-                'Create Account',
+                'Continue',
                 style: theme.textTheme.titleMedium?.copyWith(
                   color: Colors.white,
                   fontWeight: FontWeight.w800,
                 ),
               ),
-      ),
-    );
-  }
-
-  Widget _buildSocialSignup(ThemeData theme) {
-    return Column(
-      children: [
-        Row(
-          children: [
-            Expanded(
-                child: Divider(color: Colors.white.withValues(alpha: 0.2))),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Text(
-                'OR CONTINUE WITH',
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: Colors.white.withValues(alpha: 0.6),
-                  fontSize: 10,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ),
-            Expanded(
-                child: Divider(color: Colors.white.withValues(alpha: 0.2))),
-          ],
-        ),
-        const SizedBox(height: 20),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            _socialIcon(Icons.g_mobiledata_rounded),
-            const SizedBox(width: 16),
-            _socialIcon(Icons.apple_rounded),
-          ],
-        ),
-      ],
-    );
-  }
-
-  Widget _socialIcon(IconData icon) {
-    return InkWell(
-      onTap: () {},
-      borderRadius: BorderRadius.circular(16),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-        decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.1),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
-        ),
-        child: Icon(icon, color: Colors.white, size: 30),
       ),
     );
   }
@@ -557,7 +579,7 @@ class _SignupScreenState extends State<SignupScreen>
           text: TextSpan(
             text: 'Already a member? ',
             style: theme.textTheme.bodyMedium?.copyWith(
-              color: Colors.white.withValues(alpha: 0.8),
+              color: Colors.white.withOpacity(0.78),
             ),
             children: const [
               TextSpan(
