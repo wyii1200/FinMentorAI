@@ -14,62 +14,100 @@ class _ResilienceScreenState extends State<ResilienceScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // Score data structure using Records
-    final metrics = [
-      (
-        '💰',
-        'Emergency Fund',
-        4.0,
-        AppColors.danger,
-        'Covers 1.5 months — target: 6 months'
-      ),
-      (
-        '🛡️',
-        'Insurance Coverage',
-        5.0,
-        AppColors.secondary,
-        'Basic health only — no income protection'
-      ),
-      (
-        '📉',
-        'Debt-to-Income',
-        7.0,
-        AppColors.primary,
-        '22% — within manageable range'
-      ),
-      (
-        '💸',
-        'Monthly Savings',
-        8.0,
-        AppColors.purple,
-        '20% of income — great habit!'
-      ),
-    ];
+    final theme = Theme.of(context);
+    final metrics = _buildMetrics();
 
     return SingleChildScrollView(
-      physics: const BouncingScrollPhysics(),
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+      physics: const BouncingScrollPhysics(
+        parent: AlwaysScrollableScrollPhysics(),
+      ),
+      padding: const EdgeInsets.fromLTRB(20, 20, 20, 110),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _buildHeader(),
+          _buildHeader(theme),
           const SizedBox(height: 24),
-          _buildMainScoreCard(),
-          const SizedBox(height: 32),
-          _buildBreakdownHeader(),
+          _buildMainScoreCard(theme),
+          const SizedBox(height: 28),
+          _buildBreakdownHeader(theme),
           const SizedBox(height: 16),
-          _buildMetricsList(metrics),
-          const SizedBox(height: 32),
-          _buildAIAdviceCard(),
-          const SizedBox(height: 40), // Extra space for BottomNav curve
+          _buildMetricsList(theme, metrics),
+          const SizedBox(height: 28),
+          _buildAIAdviceCard(theme),
         ],
       ),
     );
   }
 
-  Widget _buildHeader() {
+  List<ResilienceMetric> _buildMetrics() {
+    if (_isStressTestActive) {
+      return const [
+        ResilienceMetric(
+          emoji: '💰',
+          title: 'Emergency Fund',
+          score: 3.0,
+          color: AppColors.danger,
+          description: 'Covers only 45 days in a job loss scenario.',
+        ),
+        ResilienceMetric(
+          emoji: '🛡️',
+          title: 'Insurance Coverage',
+          score: 4.0,
+          color: AppColors.warning,
+          description: 'Basic protection only — no income replacement buffer.',
+        ),
+        ResilienceMetric(
+          emoji: '📉',
+          title: 'Debt-to-Income',
+          score: 5.0,
+          color: AppColors.warning,
+          description: 'Debt becomes harder to manage when income drops.',
+        ),
+        ResilienceMetric(
+          emoji: '💸',
+          title: 'Monthly Savings',
+          score: 6.0,
+          color: AppColors.info,
+          description: 'Savings habit helps, but not enough for a major shock.',
+        ),
+      ];
+    }
+
+    return const [
+      ResilienceMetric(
+        emoji: '💰',
+        title: 'Emergency Fund',
+        score: 4.0,
+        color: AppColors.danger,
+        description: 'Covers 1.5 months — target: 6 months.',
+      ),
+      ResilienceMetric(
+        emoji: '🛡️',
+        title: 'Insurance Coverage',
+        score: 5.0,
+        color: AppColors.warning,
+        description: 'Basic health only — no income protection.',
+      ),
+      ResilienceMetric(
+        emoji: '📉',
+        title: 'Debt-to-Income',
+        score: 7.0,
+        color: AppColors.primary,
+        description: '22% — still within a manageable range.',
+      ),
+      ResilienceMetric(
+        emoji: '💸',
+        title: 'Monthly Savings',
+        score: 8.0,
+        color: AppColors.info,
+        description: '20% of income — a strong savings habit.',
+      ),
+    ];
+  }
+
+  Widget _buildHeader(ThemeData theme) {
     return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Expanded(
           child: SectionHeader(
@@ -77,34 +115,56 @@ class _ResilienceScreenState extends State<ResilienceScreen> {
             subtitle: 'Financial health beyond your balance',
           ),
         ),
-        // Stress Test Toggle
+        const SizedBox(width: 12),
         Column(
           children: [
             Switch.adaptive(
               value: _isStressTestActive,
               activeColor: AppColors.danger,
-              onChanged: (val) => setState(() => _isStressTestActive = val),
+              onChanged: (val) {
+                setState(() {
+                  _isStressTestActive = val;
+                });
+              },
             ),
-            const Text('STRESS TEST',
-                style: TextStyle(
-                    fontSize: 8,
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.grey)),
+            Text(
+              'STRESS TEST',
+              style: theme.textTheme.bodySmall?.copyWith(
+                fontSize: 10,
+                fontWeight: FontWeight.w800,
+                color: AppColors.textSecondary,
+                letterSpacing: 0.8,
+              ),
+            ),
           ],
         ),
       ],
     );
   }
 
-  Widget _buildMainScoreCard() {
-    double score = _isStressTestActive ? 4.8 : 6.2;
-    Color scoreColor =
-        _isStressTestActive ? AppColors.danger : AppColors.secondary;
+  Widget _buildMainScoreCard(ThemeData theme) {
+    final score = _isStressTestActive ? 4.8 : 6.2;
+    final scoreColor =
+        _isStressTestActive ? AppColors.danger : AppColors.warning;
+
+    final label = _isStressTestActive
+        ? '⚠️ HIGH RISK IN RECESSION'
+        : '⚡ MODERATE RESILIENCE';
+
+    final labelBg =
+        _isStressTestActive ? AppColors.danger : AppColors.subtleWarningBg;
+
+    final labelTextColor =
+        _isStressTestActive ? Colors.white : AppColors.warning;
+
+    final description = _isStressTestActive
+        ? 'In a job loss scenario, you may only have about 45 days of financial safety.'
+        : 'You can survive about 3.1 months without income based on your current profile.';
 
     return AppCard(
       child: Column(
         children: [
-          const SizedBox(height: 10),
+          const SizedBox(height: 6),
           TweenAnimationBuilder<double>(
             tween: Tween<double>(begin: 0, end: score / 10),
             duration: const Duration(milliseconds: 1200),
@@ -119,7 +179,7 @@ class _ResilienceScreenState extends State<ResilienceScreen> {
                     child: CircularProgressIndicator(
                       value: value,
                       strokeWidth: 14,
-                      backgroundColor: AppColors.lightGrey.withOpacity(0.5),
+                      backgroundColor: AppColors.border,
                       valueColor: AlwaysStoppedAnimation(scoreColor),
                       strokeCap: StrokeCap.round,
                     ),
@@ -127,17 +187,21 @@ class _ResilienceScreenState extends State<ResilienceScreen> {
                   Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Text('${(value * 10).toStringAsFixed(1)}',
-                          style: const TextStyle(
-                              fontSize: 48,
-                              fontWeight: FontWeight.w900,
-                              color: AppColors.dark)),
-                      const Text('OUT OF 10',
-                          style: TextStyle(
-                              fontSize: 10,
-                              fontWeight: FontWeight.bold,
-                              color: AppColors.grey,
-                              letterSpacing: 1.2)),
+                      Text(
+                        (value * 10).toStringAsFixed(1),
+                        style: theme.textTheme.displayMedium?.copyWith(
+                          fontWeight: FontWeight.w900,
+                          color: AppColors.textPrimary,
+                        ),
+                      ),
+                      Text(
+                        'OUT OF 10',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          fontWeight: FontWeight.w800,
+                          color: AppColors.textSecondary,
+                          letterSpacing: 1.2,
+                        ),
+                      ),
                     ],
                   ),
                 ],
@@ -146,48 +210,53 @@ class _ResilienceScreenState extends State<ResilienceScreen> {
           ),
           const SizedBox(height: 24),
           AppTag(
-            label: _isStressTestActive
-                ? '⚠️ HIGH RISK IN RECESSION'
-                : '⚡ MODERATE RESILIENCE',
-            textColor: _isStressTestActive ? Colors.white : AppColors.amberText,
-            bgColor: _isStressTestActive ? AppColors.danger : AppColors.amber,
+            label: label,
+            textColor: labelTextColor,
+            bgColor: labelBg,
           ),
           const SizedBox(height: 16),
           Text(
-            _isStressTestActive
-                ? 'In a job loss scenario, you have 45 days of safety.'
-                : 'You can survive ~3.1 months without income.',
+            description,
             textAlign: TextAlign.center,
-            style: const TextStyle(
-                fontSize: 13,
-                color: AppColors.grey,
-                fontWeight: FontWeight.w500),
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: AppColors.textSecondary,
+              fontWeight: FontWeight.w500,
+              height: 1.45,
+            ),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildBreakdownHeader() {
-    return const Row(
+  Widget _buildBreakdownHeader(ThemeData theme) {
+    return Row(
       children: [
-        Text('Score Breakdown',
-            style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w900,
-                color: AppColors.dark)),
-        SizedBox(width: 8),
-        Icon(Icons.info_outline, size: 16, color: AppColors.grey),
+        Text(
+          'Score Breakdown',
+          style: theme.textTheme.titleLarge?.copyWith(
+            fontWeight: FontWeight.w800,
+            color: AppColors.textPrimary,
+          ),
+        ),
+        const SizedBox(width: 8),
+        const Icon(
+          Icons.info_outline_rounded,
+          size: 16,
+          color: AppColors.textSecondary,
+        ),
       ],
     );
   }
 
   Widget _buildMetricsList(
-      List<(String, String, double, Color, String)> metrics) {
+    ThemeData theme,
+    List<ResilienceMetric> metrics,
+  ) {
     return AppCard(
       child: Column(
         children: metrics.asMap().entries.map((entry) {
-          final m = entry.value;
+          final metric = entry.value;
           final isLast = entry.key == metrics.length - 1;
 
           return Column(
@@ -197,43 +266,53 @@ class _ResilienceScreenState extends State<ResilienceScreen> {
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _buildIconBox(m.$1),
+                    _buildIconBox(metric.emoji),
                     const SizedBox(width: 16),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              Text(m.$2,
-                                  style: const TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      color: AppColors.dark)),
-                              Text('${m.$3.toInt()}/10',
-                                  style: TextStyle(
-                                      color: m.$4,
-                                      fontWeight: FontWeight.w900,
-                                      fontSize: 13)),
+                              Expanded(
+                                child: Text(
+                                  metric.title,
+                                  style: theme.textTheme.titleMedium?.copyWith(
+                                    fontWeight: FontWeight.w700,
+                                    color: AppColors.textPrimary,
+                                  ),
+                                ),
+                              ),
+                              Text(
+                                '${metric.score.toInt()}/10',
+                                style: theme.textTheme.bodyMedium?.copyWith(
+                                  color: metric.color,
+                                  fontWeight: FontWeight.w900,
+                                ),
+                              ),
                             ],
                           ),
                           const SizedBox(height: 10),
                           AppProgressBar(
-                              value: m.$3 / 10, color: m.$4, height: 8),
+                            value: metric.score / 10,
+                            color: metric.color,
+                            height: 8,
+                          ),
                           const SizedBox(height: 10),
-                          Text(m.$5,
-                              style: const TextStyle(
-                                  fontSize: 12,
-                                  color: AppColors.grey,
-                                  height: 1.4)),
+                          Text(
+                            metric.description,
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: AppColors.textSecondary,
+                              height: 1.45,
+                            ),
+                          ),
                         ],
                       ),
                     ),
                   ],
                 ),
               ),
-              if (!isLast)
-                const Divider(height: 32, color: AppColors.lightGrey),
+              if (!isLast) const Divider(height: 32, color: AppColors.border),
             ],
           );
         }).toList(),
@@ -245,14 +324,33 @@ class _ResilienceScreenState extends State<ResilienceScreen> {
     return Container(
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
-          color: AppColors.lightGrey.withOpacity(0.5),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: AppColors.lightGrey)),
-      child: Text(emoji, style: const TextStyle(fontSize: 22)),
+        color: AppColors.background,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Text(
+        emoji,
+        style: const TextStyle(fontSize: 22),
+      ),
     );
   }
 
-  Widget _buildAIAdviceCard() {
+  Widget _buildAIAdviceCard(ThemeData theme) {
+    final title =
+        _isStressTestActive ? 'Path to Safer Recovery' : 'Path to 8.5 (Robust)';
+
+    final adviceItems = _isStressTestActive
+        ? const [
+            'Build a 3-month emergency fund as the first priority.',
+            'Reduce fixed monthly commitments before taking new debt.',
+            'Add income protection or a basic backup coverage plan.',
+          ]
+        : const [
+            'Boost emergency fund to RM 12,500.',
+            'Move savings into a higher-yield savings option.',
+            'Consolidate short-term BNPL commitments into a simpler plan.',
+          ];
+
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
@@ -264,9 +362,10 @@ class _ResilienceScreenState extends State<ResilienceScreen> {
         borderRadius: BorderRadius.circular(28),
         boxShadow: [
           BoxShadow(
-              color: const Color(0xFF1E1B4B).withOpacity(0.4),
-              blurRadius: 20,
-              offset: const Offset(0, 10))
+            color: const Color(0xFF1E1B4B).withValues(alpha: 0.35),
+            blurRadius: 20,
+            offset: const Offset(0, 10),
+          ),
         ],
       ),
       child: Column(
@@ -277,45 +376,50 @@ class _ResilienceScreenState extends State<ResilienceScreen> {
               Container(
                 padding: const EdgeInsets.all(6),
                 decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.1),
-                    shape: BoxShape.circle),
-                child: const Icon(Icons.auto_awesome,
-                    color: Color(0xFFA5B4FC), size: 18),
+                  color: Colors.white.withValues(alpha: 0.10),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.auto_awesome_rounded,
+                  color: Color(0xFFA5B4FC),
+                  size: 18,
+                ),
               ),
               const SizedBox(width: 10),
-              const Text('AI STRATEGY',
-                  style: TextStyle(
-                      color: Color(0xFFA5B4FC),
-                      fontWeight: FontWeight.w900,
-                      fontSize: 12,
-                      letterSpacing: 1.2)),
+              Text(
+                'AI STRATEGY',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: const Color(0xFFA5B4FC),
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 1.2,
+                ),
+              ),
             ],
           ),
           const SizedBox(height: 20),
-          const Text('Path to 8.5 (Robust)',
-              style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 20,
-                  fontWeight: FontWeight.w800)),
+          Text(
+            title,
+            style: theme.textTheme.titleLarge?.copyWith(
+              color: Colors.white,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
           const SizedBox(height: 20),
-          _tipItem('Boost emergency fund to RM12,500'),
-          _tipItem('Switch to a High-Yield Savings Account'),
-          _tipItem('Consolidate 2 BNPL debts into 1'),
+          ...adviceItems.map((tip) => _tipItem(theme, tip)),
           const SizedBox(height: 24),
           SizedBox(
             width: double.infinity,
             child: ElevatedButton(
-              onPressed: () {},
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primary,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16)),
-                elevation: 0,
-              ),
-              child: const Text('Generate Action Plan',
-                  style: TextStyle(fontWeight: FontWeight.bold)),
+              onPressed: () {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text(
+                      'Your action plan would be generated here.',
+                    ),
+                  ),
+                );
+              },
+              child: const Text('Generate Action Plan'),
             ),
           ),
         ],
@@ -323,21 +427,49 @@ class _ResilienceScreenState extends State<ResilienceScreen> {
     );
   }
 
-  Widget _tipItem(String text) {
+  Widget _tipItem(ThemeData theme, String text) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 14),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Icon(Icons.bolt_rounded, color: Color(0xFFFFD166), size: 20),
+          const Padding(
+            padding: EdgeInsets.only(top: 1),
+            child: Icon(
+              Icons.bolt_rounded,
+              color: Color(0xFFFFD166),
+              size: 20,
+            ),
+          ),
           const SizedBox(width: 12),
           Expanded(
-              child: Text(text,
-                  style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500))),
+            child: Text(
+              text,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: Colors.white,
+                fontWeight: FontWeight.w500,
+                height: 1.45,
+              ),
+            ),
+          ),
         ],
       ),
     );
   }
+}
+
+class ResilienceMetric {
+  final String emoji;
+  final String title;
+  final double score;
+  final Color color;
+  final String description;
+
+  const ResilienceMetric({
+    required this.emoji,
+    required this.title,
+    required this.score,
+    required this.color,
+    required this.description,
+  });
 }

@@ -1,36 +1,53 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:provider/provider.dart'; // Ensure this import is here
+import 'package:provider/provider.dart';
+
 import 'providers/user_provider.dart';
 import 'theme/app_theme.dart';
+
+// Screens
 import 'screens/onboarding_screen.dart';
 import 'screens/main_shell.dart';
 import 'screens/login_screen.dart';
 import 'screens/signup_screen.dart';
+import 'screens/income_screen.dart';
+import 'screens/spent_screen.dart';
+import 'screens/saved_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   await SystemChrome.setPreferredOrientations([
     DeviceOrientation.portraitUp,
-    DeviceOrientation.portraitDown,
   ]);
 
-  SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
-    statusBarColor: Colors.transparent,
-    statusBarIconBrightness: Brightness.light,
-    systemNavigationBarColor: Colors.white,
-    systemNavigationBarIconBrightness: Brightness.dark,
-  ));
-
-  runApp(
-    MultiProvider(
-      providers: [
-        ChangeNotifierProvider(create: (_) => UserProvider()),
-      ],
-      child: const FinMentorApp(),
+  SystemChrome.setSystemUIOverlayStyle(
+    const SystemUiOverlayStyle(
+      statusBarColor: Colors.transparent,
+      statusBarIconBrightness: Brightness.dark,
+      statusBarBrightness: Brightness.light,
+      systemNavigationBarColor: Colors.white,
+      systemNavigationBarIconBrightness: Brightness.dark,
     ),
   );
+
+  runApp(const AppProviders());
+}
+
+class AppProviders extends StatelessWidget {
+  const AppProviders({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider<UserProvider>(
+          create: (_) => UserProvider(),
+        ),
+      ],
+      child: const FinMentorApp(),
+    );
+  }
 }
 
 class FinMentorApp extends StatelessWidget {
@@ -42,38 +59,69 @@ class FinMentorApp extends StatelessWidget {
       title: 'FinMentor AI',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.theme,
-
-      builder: (context, child) {
-        return MediaQuery(
-          data: MediaQuery.of(context).copyWith(
-            textScaler: TextScaler.noScaling,
-          ),
-          child: ScrollConfiguration(
-            behavior: const ScrollBehavior().copyWith(overscroll: false),
-            child: child!,
-          ),
-        );
-      },
-
-      // Use 'home' instead of 'initialRoute' for dynamic auth checking
-      home: Consumer<UserProvider>(
-        builder: (context, userProv, _) {
-          // If logged in, go to MainShell, otherwise Onboarding
-          return userProv.isLoggedIn
-              ? const MainShell()
-              : const OnboardingScreen();
-        },
-      ),
-
+      home: const AppEntry(),
       routes: {
         '/login': (context) => const LoginScreen(),
         '/signup': (context) => const SignupScreen(),
         '/main': (context) => const MainShell(),
+        '/income': (context) => IncomeScreen(
+              onBack: () => Navigator.of(context).maybePop(),
+            ),
+        '/spent': (context) => SpentScreen(
+              onBack: () => Navigator.of(context).maybePop(),
+            ),
+        '/saved': (context) => SavedScreen(
+              onBack: () => Navigator.of(context).maybePop(),
+            ),
       },
+      builder: (context, child) {
+        final mediaQuery = MediaQuery.of(context);
 
-      onUnknownRoute: (settings) => MaterialPageRoute(
-        builder: (context) => const OnboardingScreen(),
+        return MediaQuery(
+          data: mediaQuery.copyWith(
+            textScaler: mediaQuery.textScaler.clamp(
+              minScaleFactor: 1.0,
+              maxScaleFactor: 1.1,
+            ),
+          ),
+          child: ScrollConfiguration(
+            behavior: const _AppScrollBehavior(),
+            child: child ?? const SizedBox.shrink(),
+          ),
+        );
+      },
+      onUnknownRoute: (_) => MaterialPageRoute(
+        builder: (_) => const OnboardingScreen(),
       ),
     );
+  }
+}
+
+class AppEntry extends StatelessWidget {
+  const AppEntry({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Consumer<UserProvider>(
+      builder: (context, userProv, _) {
+        if (userProv.isLoggedIn) {
+          return const MainShell();
+        }
+        return const OnboardingScreen();
+      },
+    );
+  }
+}
+
+class _AppScrollBehavior extends MaterialScrollBehavior {
+  const _AppScrollBehavior();
+
+  @override
+  Widget buildOverscrollIndicator(
+    BuildContext context,
+    Widget child,
+    ScrollableDetails details,
+  ) {
+    return child;
   }
 }
