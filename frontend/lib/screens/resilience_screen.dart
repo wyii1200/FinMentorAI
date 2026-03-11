@@ -127,12 +127,12 @@ class _ResilienceScreenState extends State<ResilienceScreen> {
             ),
             Text(
               'STRESS TEST',
-              style: theme.textTheme.bodySmall?.copyWith(
-                fontSize: 10,
-                fontWeight: FontWeight.w800,
-                color: AppColors.textSecondary,
-                letterSpacing: 0.8,
-              ),
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w800,
+                    color: AppColors.textSecondary,
+                    letterSpacing: 0.8,
+                  ),
             ),
           ],
         ),
@@ -412,19 +412,8 @@ class _ResilienceScreenState extends State<ResilienceScreen> {
           SizedBox(
             width: double.infinity,
             child: ElevatedButton(
-              onPressed: () {
-                final message = _isStressTestActive
-                    ? 'Stress-test action plan generated from your current financial profile.'
-                    : 'Personalized action plan generated from your current resilience profile.';
-
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(message),
-                    behavior: SnackBarBehavior.floating,
-                  ),
-                );
-              },
-              child: const Text('Generate Action Plan'),
+              onPressed: () => _showActionPlanSheet(context, user),
+              child: const Text('View Full Action Plan'),
             ),
           ),
         ],
@@ -462,6 +451,426 @@ class _ResilienceScreenState extends State<ResilienceScreen> {
     );
   }
 
+  void _showActionPlanSheet(BuildContext context, UserProvider user) {
+    final theme = Theme.of(context);
+    final displayedScore = _isStressTestActive
+        ? ((user.resilienceScore / 10) - _stressPenalty(user)).clamp(0.0, 10.0)
+        : (user.resilienceScore / 10);
+
+    final statusLabel = _isStressTestActive
+        ? _stressLabel(displayedScore)
+        : _normalLabel(displayedScore);
+
+    final actionItems = _generateDetailedActionPlan(user);
+    final weeklyFocus = _generateWeeklyFocus(user);
+    final estimatedImpact = _estimateImprovement(user);
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) {
+        return DraggableScrollableSheet(
+          initialChildSize: 0.82,
+          minChildSize: 0.60,
+          maxChildSize: 0.95,
+          expand: false,
+          builder: (context, scrollController) {
+            return Container(
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
+              ),
+              child: Column(
+                children: [
+                  const SizedBox(height: 12),
+                  Container(
+                    width: 44,
+                    height: 5,
+                    decoration: BoxDecoration(
+                      color: AppColors.border,
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+                  Expanded(
+                    child: SingleChildScrollView(
+                      controller: scrollController,
+                      padding: const EdgeInsets.fromLTRB(20, 6, 20, 28),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            _isStressTestActive
+                                ? 'Your Stress-Test Action Plan'
+                                : 'Your Full Action Plan',
+                            style: theme.textTheme.headlineSmall?.copyWith(
+                              fontWeight: FontWeight.w900,
+                              color: AppColors.textPrimary,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'A more detailed AI-guided plan based on your current financial profile.',
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              color: AppColors.textSecondary,
+                              height: 1.45,
+                            ),
+                          ),
+                          const SizedBox(height: 20),
+                          _buildPlanSummaryCard(
+                            theme,
+                            displayedScore,
+                            statusLabel,
+                            estimatedImpact,
+                          ),
+                          const SizedBox(height: 20),
+                          _buildSheetSectionTitle(theme, 'Top Priorities'),
+                          const SizedBox(height: 12),
+                          ...actionItems.asMap().entries.map(
+                                (entry) => _buildActionPlanItem(
+                                  theme,
+                                  index: entry.key + 1,
+                                  title: entry.value.title,
+                                  description: entry.value.description,
+                                ),
+                              ),
+                          const SizedBox(height: 20),
+                          _buildSheetSectionTitle(theme, 'This Week\'s Focus'),
+                          const SizedBox(height: 12),
+                          Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.all(18),
+                            decoration: BoxDecoration(
+                              color: AppColors.background,
+                              borderRadius: BorderRadius.circular(18),
+                              border: Border.all(color: AppColors.border),
+                            ),
+                            child: Text(
+                              weeklyFocus,
+                              style: theme.textTheme.bodyMedium?.copyWith(
+                                color: AppColors.textPrimary,
+                                fontWeight: FontWeight.w600,
+                                height: 1.5,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 24),
+                          SizedBox(
+                            width: double.infinity,
+                            child: ElevatedButton(
+                              onPressed: () => Navigator.pop(context),
+                              child: const Text('Got It'),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildPlanSummaryCard(
+    ThemeData theme,
+    double displayedScore,
+    String statusLabel,
+    String estimatedImpact,
+  ) {
+    final scoreColor = displayedScore >= 7.5
+        ? AppColors.success
+        : displayedScore >= 5
+            ? AppColors.warning
+            : AppColors.danger;
+
+    final labelBg = displayedScore >= 7.5
+        ? AppColors.subtleSuccessBg
+        : displayedScore >= 5
+            ? AppColors.subtleWarningBg
+            : const Color(0xFFFEE2E2);
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            scoreColor.withOpacity(0.12),
+            Colors.white,
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: scoreColor.withOpacity(0.18)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Current Score',
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: AppColors.textSecondary,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 0.6,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Text(
+                '${displayedScore.toStringAsFixed(1)}/10',
+                style: theme.textTheme.headlineMedium?.copyWith(
+                  fontWeight: FontWeight.w900,
+                  color: scoreColor,
+                ),
+              ),
+              const SizedBox(width: 12),
+              AppTag(
+                label: statusLabel,
+                textColor: scoreColor,
+                bgColor: labelBg,
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              const Icon(
+                Icons.trending_up_rounded,
+                size: 18,
+                color: AppColors.success,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  estimatedImpact,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: AppColors.textPrimary,
+                    fontWeight: FontWeight.w600,
+                    height: 1.45,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSheetSectionTitle(ThemeData theme, String title) {
+    return Text(
+      title,
+      style: theme.textTheme.titleMedium?.copyWith(
+        fontWeight: FontWeight.w800,
+        color: AppColors.textPrimary,
+      ),
+    );
+  }
+
+  Widget _buildActionPlanItem(
+    ThemeData theme, {
+    required int index,
+    required String title,
+    required String description,
+  }) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 34,
+            height: 34,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: AppColors.textPrimary,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Text(
+              '$index',
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: Colors.white,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w800,
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  description,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: AppColors.textSecondary,
+                    height: 1.45,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  List<ActionPlanItem> _generateDetailedActionPlan(UserProvider user) {
+    final items = <ActionPlanItem>[];
+
+    final availableToSave = user.availableToSave;
+    final bnplRatio =
+        user.income > 0 ? user.bnplCommitments / user.income : 0.0;
+    final emergencyMonths =
+        user.expenses > 0 ? user.currentSavings / user.expenses : 0.0;
+    final goalProgress = user.savingsGoal > 0
+        ? (user.currentSavings / user.savingsGoal).clamp(0.0, 1.0)
+        : 0.0;
+
+    if (emergencyMonths < 3) {
+      items.add(
+        const ActionPlanItem(
+          title: 'Strengthen your emergency buffer',
+          description:
+              'Prioritize building savings until you reach at least 3 months of essential expenses. This improves your financial resilience during unexpected income shocks.',
+        ),
+      );
+    }
+
+    if (bnplRatio >= 0.2) {
+      items.add(
+        const ActionPlanItem(
+          title: 'Reduce BNPL pressure',
+          description:
+              'Your BNPL commitments are taking a meaningful share of income. Try lowering short-term installment usage and avoid taking on new buy-now-pay-later commitments for now.',
+        ),
+      );
+    }
+
+    if (availableToSave <= 0) {
+      items.add(
+        const ActionPlanItem(
+          title: 'Create positive monthly cash flow',
+          description:
+              'Review non-essential spending and trim at least one recurring expense. The immediate goal is to stop overspending and restore a small monthly saving capacity.',
+        ),
+      );
+    } else if (availableToSave < 300) {
+      items.add(
+        const ActionPlanItem(
+          title: 'Increase monthly savings consistency',
+          description:
+              'You still have some room to save, but the margin is tight. Setting a fixed monthly auto-transfer can help you grow savings more steadily.',
+        ),
+      );
+    }
+
+    if (user.savingsGoal > 0 && goalProgress < 0.5) {
+      items.add(
+        const ActionPlanItem(
+          title: 'Accelerate progress toward your goal',
+          description:
+              'Your current savings goal is still in the early stages. Breaking it into smaller milestone targets can make the goal feel more achievable and easier to maintain.',
+        ),
+      );
+    }
+
+    if (_isStressTestActive) {
+      items.add(
+        const ActionPlanItem(
+          title: 'Prepare for lower-income scenarios',
+          description:
+              'Stress-test mode suggests protecting essentials first. Focus on housing, food, transport, and emergency cash while delaying non-urgent purchases.',
+        ),
+      );
+    }
+
+    if (items.isEmpty) {
+      items.addAll(const [
+        ActionPlanItem(
+          title: 'Maintain your healthy financial routine',
+          description:
+              'Your current profile looks strong. Keep your savings habit consistent and continue reviewing expenses regularly to preserve your resilience.',
+        ),
+        ActionPlanItem(
+          title: 'Optimize where idle cash sits',
+          description:
+              'Consider moving part of your savings into a low-risk account with better returns while keeping enough liquidity for emergencies.',
+        ),
+        ActionPlanItem(
+          title: 'Keep improving long-term resilience',
+          description:
+              'As income grows, revise your savings target upward so your resilience continues improving rather than staying flat.',
+        ),
+      ]);
+    }
+
+    return items.take(4).toList();
+  }
+
+  String _generateWeeklyFocus(UserProvider user) {
+    final availableToSave = user.availableToSave;
+    final emergencyMonths =
+        user.expenses > 0 ? user.currentSavings / user.expenses : 0.0;
+    final bnplRatio =
+        user.income > 0 ? user.bnplCommitments / user.income : 0.0;
+
+    if (_isStressTestActive) {
+      return 'This week, focus on protecting essentials and identifying one expense you can temporarily reduce if your income drops.';
+    }
+
+    if (emergencyMonths < 1) {
+      return 'This week, aim to set aside your first extra emergency-fund amount, even if it is small. Building the habit matters first.';
+    }
+
+    if (bnplRatio >= 0.2) {
+      return 'This week, avoid new BNPL purchases and review which current commitments can be cleared earlier.';
+    }
+
+    if (availableToSave > 0) {
+      return 'This week, transfer a fixed amount into savings right after income comes in so saving happens before extra spending.';
+    }
+
+    return 'This week, review your recent spending and cut one non-essential category to improve your resilience score.';
+  }
+
+  String _estimateImprovement(UserProvider user) {
+    final availableToSave = user.availableToSave;
+    final emergencyMonths =
+        user.expenses > 0 ? user.currentSavings / user.expenses : 0.0;
+    final bnplRatio =
+        user.income > 0 ? user.bnplCommitments / user.income : 0.0;
+
+    double impact = 0.8;
+
+    if (emergencyMonths < 1) impact += 0.8;
+    if (bnplRatio >= 0.2) impact += 0.6;
+    if (availableToSave > 0) impact += 0.4;
+    if (_isStressTestActive) impact += 0.3;
+
+    return 'Following these steps consistently could improve your resilience by about +${impact.toStringAsFixed(1)} points over time.';
+  }
+
   List<String> _generateAdvice(UserProvider user) {
     final tips = <String>[];
 
@@ -473,34 +882,42 @@ class _ResilienceScreenState extends State<ResilienceScreen> {
 
     if (emergencyMonths < 3) {
       tips.add(
-          'Build your emergency fund toward at least 3 months of expenses first.');
+        'Build your emergency fund toward at least 3 months of expenses first.',
+      );
     }
 
     if (bnplRatio >= 0.2) {
       tips.add(
-          'Reduce BNPL commitments below 20% of your income to lower debt pressure.');
+        'Reduce BNPL commitments below 20% of your income to lower debt pressure.',
+      );
     }
 
     if (availableToSave <= 0) {
       tips.add(
-          'Cut non-essential monthly spending to create positive saving capacity.');
+        'Cut non-essential monthly spending to create positive saving capacity.',
+      );
     } else if (availableToSave < user.savingsGoal * 0.2) {
       tips.add(
-          'Increase your monthly transfer into savings to reach your goal faster.');
+        'Increase your monthly transfer into savings to reach your goal faster.',
+      );
     }
 
     if (user.currentSavings < user.savingsGoal && user.savingsGoal > 0) {
       tips.add(
-          'Stay consistent with savings contributions so your goal progress keeps moving.');
+        'Stay consistent with savings contributions so your goal progress keeps moving.',
+      );
     }
 
     if (tips.isEmpty) {
       tips.add(
-          'Your financial profile looks healthy. Keep maintaining your current saving discipline.');
+        'Your financial profile looks healthy. Keep maintaining your current saving discipline.',
+      );
       tips.add(
-          'Review your savings goal regularly so your resilience grows with your income.');
+        'Review your savings goal regularly so your resilience grows with your income.',
+      );
       tips.add(
-          'Consider growing idle savings into a higher-yield but low-risk account.');
+        'Consider growing idle savings into a higher-yield but low-risk account.',
+      );
     }
 
     return tips.take(3).toList();
@@ -616,6 +1033,16 @@ class ResilienceMetric {
     required this.title,
     required this.score,
     required this.color,
+    required this.description,
+  });
+}
+
+class ActionPlanItem {
+  final String title;
+  final String description;
+
+  const ActionPlanItem({
+    required this.title,
     required this.description,
   });
 }
