@@ -124,7 +124,10 @@ class _LoginScreenState extends State<LoginScreen>
 
     return Scaffold(
       resizeToAvoidBottomInset: true,
+      backgroundColor: const Color(0xFF1E8A5C),
       body: Container(
+        width: double.infinity,
+        height: double.infinity,
         decoration: const BoxDecoration(
           gradient: LinearGradient(
             colors: [
@@ -137,26 +140,36 @@ class _LoginScreenState extends State<LoginScreen>
           ),
         ),
         child: SafeArea(
-          child: FadeTransition(
-            opacity: _fadeAnim,
-            child: SingleChildScrollView(
-              physics: const BouncingScrollPhysics(
-                parent: AlwaysScrollableScrollPhysics(),
-              ),
-              padding: const EdgeInsets.fromLTRB(24, 12, 24, 24),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _buildBackButton(),
-                  const SizedBox(height: 24),
-                  _buildHeader(theme),
-                  const SizedBox(height: 24),
-                  _buildLoginForm(theme),
-                  const SizedBox(height: 20),
-                  _buildSignUpLink(theme),
-                ],
-              ),
-            ),
+          bottom: false,
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              return SingleChildScrollView(
+                physics: const BouncingScrollPhysics(
+                  parent: AlwaysScrollableScrollPhysics(),
+                ),
+                padding: const EdgeInsets.fromLTRB(24, 12, 24, 24),
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(
+                    minHeight: constraints.maxHeight - 36,
+                  ),
+                  child: FadeTransition(
+                    opacity: _fadeAnim,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _buildBackButton(),
+                        const SizedBox(height: 24),
+                        _buildHeader(theme),
+                        const SizedBox(height: 24),
+                        _buildLoginForm(theme),
+                        const SizedBox(height: 20),
+                        _buildSignUpLink(theme),
+                      ],
+                    ),
+                  ),
+                ),
+              );
+            },
           ),
         ),
       ),
@@ -193,7 +206,9 @@ class _LoginScreenState extends State<LoginScreen>
               decoration: BoxDecoration(
                 color: Colors.white.withOpacity(0.10),
                 borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: Colors.white.withOpacity(0.10)),
+                border: Border.all(
+                  color: Colors.white.withOpacity(0.10),
+                ),
               ),
               child: const Icon(
                 Icons.account_balance_wallet_rounded,
@@ -408,7 +423,11 @@ class _LoginScreenState extends State<LoginScreen>
         color: Color(0xFFB8C0CC),
         fontSize: 14,
       ),
-      prefixIcon: Icon(icon, color: AppColors.primary, size: 20),
+      prefixIcon: Icon(
+        icon,
+        color: AppColors.primary,
+        size: 20,
+      ),
       filled: true,
       fillColor: const Color(0xFFF7F9F8),
       contentPadding: const EdgeInsets.symmetric(
@@ -484,7 +503,9 @@ class _LoginScreenState extends State<LoginScreen>
             onTap: () {
               Navigator.push(
                 context,
-                MaterialPageRoute(builder: (_) => const SignupScreen()),
+                MaterialPageRoute(
+                  builder: (_) => const SignupScreen(),
+                ),
               );
             },
             child: Text(
