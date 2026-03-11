@@ -1,95 +1,101 @@
 /**
- * FinMentor AI — Feature 2: "Future You" Financial Simulator
+ * FinMentor AI — Feature 2: Future You Simulator
  *
- * Cloud Function: POST /simulateFuture
+ * FLUTTER SCREEN: SimulatorScreen
  *
- * Flow:
- *   1. Verify Firebase Auth token (authMiddleware)
- *   2. Check daily rate limit (rateLimiter)
- *   3. Validate request body (validators)
- *   4. Compute debt projection / savings growth instantly (financeMath)
- *   5. Call Claude for personalized future scenario explanation (claudeService)
- *   6. Save result to Firestore under user's simulation history (firestoreService)
- *   7. Return chart data + AI narrative to frontend
+ * Flutter tabs map to scenarioType:
+ *   'BNPL Purchase'  → scenarioType: 'bnpl'
+ *   'Save More'      → scenarioType: 'savings'
+ *   'Personal Loan'  → scenarioType: 'loan'  (same math as bnpl)
  *
- * Request body:
- * {
- *   userId:        string   (Firebase UID, optional)
- *   scenarioType:  string   ("bnpl" | "savings" | "both", required)
- *   income:        number   (RM, required)
- *   amount:        number   (RM value of purchase or monthly savings, required)
- *   months:        number   (simulation duration in months, required)
- *   interestRate:  number   (%, optional, default 0)
- *   existingSavings: number (RM, optional, default 0)
- * }
+ * Flutter sends:   { scenarioType, income, amount, months, interestRate?, existingSavings? }
+ *   amount:  1500 for bnpl/loan, 400 for savings (Flutter hardcoded defaults)
+ *   months:  slider value 3–24
  *
- * Response:
- * {
- *   simulation: {
- *     debtProjection:    array    (monthly debt balance over time)
- *     savingsProjection: array    (monthly savings balance over time)
- *     emergencyScore:    number   (months survivable without income)
- *     interestPaid:      number   (total interest paid)
- *     netWorthDelta:     number   (difference vs not taking BNPL)
- *   }
- *   riskLevel:   string   ("Low" | "Medium" | "High")
- *   chartData:   array    (formatted for frontend chart library)
- *   advice:      string   (Claude's future scenario narrative)
- *   timestamp:   string   (ISO date)
- *   savedId:     string   (Firestore document ID)
- * }
+ * Flutter uses from response:
+ *   chartData[]          → LineChart spots {month, debt, savings}
+ *   netImpact            → "NET IMPACT +RM X" card
+ *   scoreDelta           → "SCORE Δ +X pts" card
+ *   advice               → _buildFinMentorAdvice() dark card text
  */
 
 const { onRequest } = require('firebase-functions/https');
+const { authMiddleware } = require('../middleware/authMiddleware');
+const { rateLimiter } = require('../middleware/rateLimiter');
 const { simulateFutureWithClaude } = require('../services/claudeService');
 const { saveSimulation } = require('../services/firestoreService');
 const { computeFutureSimulation } = require('../utils/financeMath');
 const { validateSimulationInput } = require('../utils/validators');
 
 const simulateFutureHandler = async (req, res) => {
-  try {
-    const { userId, scenarioType, income, amount, months, interestRate = 0, existingSavings = 0 } = req.body;
+  res.set('Access-Control-Allow-Origin', '*');
+  res.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  if (req.method === 'OPTIONS') return res.status(204).send('');
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed.' });
 
-    // 1. Validate input
-    const validationError = validateSimulationInput({ scenarioType, income, amount, months });
-    if (validationError) {
-      return res.status(400).json({ error: validationError });
+  await authMiddleware(req, res, async () => {
+    try {
+      const uid = req.user.uid;
+
+      const allowed = await rateLimiter(uid);
+      if (!allowed) return res.status(429).json({ error: 'Daily limit reached (10/day). Try again tomorrow.' });
+
+      const { scenarioType, income, amount, months, interestRate = 0, existingSavings = 0 } = req.body;
+
+      // Validate — accepts 'bnpl', 'savings', 'loan' (loan added for Flutter tab 3)
+      const validationError = validateSimulationInput({ scenarioType, income, amount, months });
+      if (validationError) return res.status(400).json({ error: validationError });
+
+      const simulation = computeFutureSimulation({ scenarioType, income, amount, months, interestRate, existingSavings });
+
+      let advice;
+      try {
+        advice = await simulateFutureWithClaude({ scenarioType, income, amount, months, interestRate, existingSavings, simulation });
+      } catch (e) {
+        console.error('Claude error:', e.message);
+        advice = 'AI advice temporarily unavailable.';
+      }
+
+      const result = {
+        // Flutter LineChart data
+        chartData: simulation.chartData,         // [{month, debt, savings}] — Flutter plots this
+
+        // Flutter impact summary card
+        netImpact: simulation.netImpact,         // "NET IMPACT +RM X"
+        scoreDelta: simulation.scoreDelta,        // "SCORE Δ +X pts"
+
+        // Full simulation details
+        simulation: {
+          debtProjection: simulation.debtProjection,
+          savingsProjection: simulation.savingsProjection,
+          emergencyScore: simulation.emergencyScore,
+          interestPaid: simulation.interestPaid,
+          netWorthDelta: simulation.netWorthDelta,
+        },
+
+        riskLevel: simulation.riskLevel,
+        advice,                                  // Flutter dark advice card text
+        timestamp: new Date().toISOString(),
+      };
+
+      let savedId;
+      try {
+        savedId = await saveSimulation(uid, result);
+        result.savedId = savedId;
+      } catch (e) {
+        console.error('Firestore save error:', e.message);
+      }
+
+      return res.status(200).json(result);
+
+    } catch (error) {
+      console.error('simulateFuture error:', error);
+      return res.status(500).json({ error: 'Internal server error' });
     }
-
-    // 2. Compute simulation math
-    const simulation = computeFutureSimulation({ scenarioType, income, amount, months, interestRate, existingSavings });
-
-    // 3. Get AI narrative from Claude
-    const advice = await simulateFutureWithClaude({ scenarioType, income, amount, months, interestRate, existingSavings, simulation });
-
-    // 4. Build response
-    const result = {
-      simulation: {
-        debtProjection: simulation.debtProjection,
-        savingsProjection: simulation.savingsProjection,
-        emergencyScore: simulation.emergencyScore,
-        interestPaid: simulation.interestPaid,
-        netWorthDelta: simulation.netWorthDelta,
-      },
-      riskLevel: simulation.riskLevel,
-      chartData: simulation.chartData,
-      advice,
-      timestamp: new Date().toISOString(),
-    };
-
-    // 5. Save to Firestore (optional)
-    if (userId) {
-      const savedId = await saveSimulation(userId, result);
-      result.savedId = savedId;
-    }
-
-    return res.status(200).json(result);
-
-  } catch (error) {
-    console.error('simulateFuture error:', error);
-    return res.status(500).json({ error: 'Internal server error' });
-  }
+  });
 };
 
 const simulateFuture = onRequest(simulateFutureHandler);
 module.exports = { simulateFuture };
+

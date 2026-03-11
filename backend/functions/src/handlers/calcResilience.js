@@ -1,83 +1,51 @@
 /**
  * FinMentor AI — Feature 4: Financial Resilience Score
  *
- * Cloud Function: POST /calcResilience
+ * FLUTTER SCREEN: ResilienceScreen
  *
- * Flow:
- *   1. Verify Firebase Auth token (authMiddleware)
- *   2. Check daily rate limit (rateLimiter)
- *   3. Validate request body (validators)
- *   4. Compute resilience score — no AI needed for the number (financeMath)
- *   5. Call Claude for personalized action plan (claudeService)
- *   6. Save snapshot to Firestore for trend tracking (firestoreService)
- *   7. Return score + AI plan to frontend
+ * Flutter currently has HARDCODED data — this backend makes it dynamic.
+ * Match every field name to what ResilienceScreen needs to display.
  *
- * Request body:
- * {
- *   income:     number   (RM/month, optional but improves AI advice)
- *   savings:    number   (RM total, required)
- *   fixedExp:   number   (RM/month, required)
- *   varExp:     number   (RM/month, optional, default 0)
- *   insurance:  number   (RM coverage, optional, default 0)
- *   bnplDebt:   number   (RM total outstanding, optional, default 0)
- *   dependents: number   (count, optional, default 0)
- * }
+ * Flutter sends:   { savings, fixedExp, income?, varExp?, insurance?, bnplDebt?, dependents? }
  *
- * Response:
- * {
- *   math:    { monthlyBurn, netAssets, scoreMonths, level, targetMonths, savingsGap, monthsToTarget }
- *   aiPlan:  string (Claude's personalized action plan)
- *   savedId: string (Firestore document ID)
- * }
+ * Flutter uses from response:
+ *   scoreOut10            → CircularProgressIndicator value (score/10), displayed as "X.X"
+ *   stressTestScore       → score when stress test toggle is ON
+ *   tagLabel              → AppTag text ("⚡ MODERATE RESILIENCE" etc)
+ *   survivalMonths        → "~X months without income" normal text
+ *   stressDays            → "X days of safety" stress test text
+ *   breakdown[]           → _buildMetricsList() — 4 items with {icon, title, score, description}
+ *   nextLevelLabel        → AI card title "Path to X.X (Label)"
+ *   savingsGap            → AI tip "Boost emergency fund to RM{X}"
+ *   aiPlan                → AI strategy text / tips
  */
 
-//const functions = require("firebase-functions");
-const { onRequest } = require("firebase-functions/https");
-const { defineSecret } = require("firebase-functions/params");
+const { onRequest } = require('firebase-functions/https');
+const { authMiddleware } = require('../middleware/authMiddleware');
+const { rateLimiter } = require('../middleware/rateLimiter');
+const { computeResilience } = require('../utils/financeMath');
+const { validateResilienceInput } = require('../utils/validators');
+const { resiliencePrompt } = require('../utils/prompts');
+const { askClaude } = require('../services/claudeService');
+const { saveResilienceSnap } = require('../services/firestoreService');
 
+const calcResilience = onRequest(async (req, res) => {
+  res.set('Access-Control-Allow-Origin', '*');
+  res.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  if (req.method === 'OPTIONS') return res.status(204).send('');
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed.' });
 
-const { authMiddleware } = require("../middleware/authMiddleware");
-const { rateLimiter } = require("../middleware/rateLimiter");
-const { computeResilience } = require("../utils/financeMath");
-const { validateResilienceInput } = require("../utils/validators");
-const { resiliencePrompt } = require("../utils/prompts");
-const { askClaude, ANTHROPIC_KEY } = require("../services/claudeService");
-const { saveResilienceSnap } = require("../services/firestoreService");
-
-
-//const ANTHROPIC_KEY = defineSecret("ANTHROPIC_API_KEY");
-
-
-const calcResilience = onRequest({ secrets: [ANTHROPIC_KEY] }, 
-    async (req, res) => {
-    // CORS headers
-    res.set("Access-Control-Allow-Origin", "*");
-    res.set("Access-Control-Allow-Methods", "POST, OPTIONS");
-    res.set("Access-Control-Allow-Headers", "Content-Type, Authorization");
-
-    if (req.method === "OPTIONS") return res.status(204).send("");
-    if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed." });
-
-    // Step 1: Auth
-
-    //skip auth for now to speed up testing
-    //await authMiddleware(req, res, async () => {
-      req.user = { uid: "test_user_123" }; // fake user
+  await authMiddleware(req, res, async () => {
+    try {
       const uid = req.user.uid;
 
-      // Step 2: Rate limit
       const allowed = await rateLimiter(uid);
-      if (!allowed) {
-        return res.status(429).json({
-          error: "Daily analysis limit reached (10/day). Try again tomorrow.",
-        });
-      }
+      if (!allowed) return res.status(429).json({ error: 'Daily limit reached (10/day). Try again tomorrow.' });
 
-      // Step 3: Validate
       const { valid, error } = validateResilienceInput(req.body);
       if (!valid) return res.status(400).json({ error });
 
-      // Step 4: Compute resilience score (deterministic math)
       let math;
       try {
         math = computeResilience(req.body);
@@ -85,33 +53,70 @@ const calcResilience = onRequest({ secrets: [ANTHROPIC_KEY] },
         return res.status(400).json({ error: mathError.message });
       }
 
-      // Step 5: AI action plan
+      // AI action plan
       let aiPlan;
       try {
         const { system, user } = resiliencePrompt(req.body, math);
         aiPlan = await askClaude(system, user);
       } catch (aiError) {
-        console.error("Claude API error:", aiError.message);
-        aiPlan = "AI plan temporarily unavailable. Your resilience score is shown above.";
+        console.error('Claude error:', aiError.message);
+        aiPlan = 'AI plan temporarily unavailable.';
       }
 
-      // Step 6: Save snapshot to Firestore (enables trend tracking over time)
+      // Parse aiPlan into tips[] array so Flutter can map each to _tipItem()
+      // AI is prompted to return numbered tips — we split on \n and filter
+      const tips = aiPlan
+        .split('\n')
+        .map(line => line.replace(/^\d+[\.\)]\s*/, '').trim())
+        .filter(line => line.length > 10)
+        .slice(0, 3);  // Flutter shows exactly 3 tips
+
       let savedId;
       try {
-        savedId = await saveResilienceSnap(uid, {
-          ...req.body,
-          ...math,
-          aiPlan,
-        });
+        savedId = await saveResilienceSnap(uid, { ...req.body, ...math, aiPlan });
       } catch (dbError) {
-        console.error("Firestore save error:", dbError.message);
+        console.error('Firestore save error:', dbError.message);
       }
 
-      // Step 7: Respond
-      return res.status(200).json({ math, aiPlan, savedId });
-    });
-    
-  //});
+      return res.status(200).json({
+        // Flutter CircularProgressIndicator
+        scoreOut10: math.scoreOut10,            // progress = scoreOut10 / 10
+        stressTestScore: math.stressTestScore,  // stress toggle value
+
+        // Flutter tag + description text
+        tagLabel: math.tagLabel,
+        survivalMonths: math.survivalMonths,    // "~X months without income"
+        survivalDays: math.survivalDays,
+        stressDays: math.stressDays,            // "X days of safety"
+
+        // Flutter 4-item breakdown list
+        breakdown: math.breakdown,              // [{icon, title, score, description}]
+
+        // Flutter AI card
+        nextLevelLabel: math.nextLevelLabel,    // "Path to X.X (Label)"
+        savingsGap: math.savingsGap,            // "Boost emergency fund to RM{X}"
+        tips,                                   // Flutter maps each to _tipItem()
+        aiPlan,
+
+        // Raw data for history/debug
+        raw: {
+          scoreMonths: math.scoreMonths,
+          monthlyBurn: math.monthlyBurn,
+          netAssets: math.netAssets,
+          level: math.level,
+          targetMonths: math.targetMonths,
+          monthsToTarget: math.monthsToTarget,
+        },
+
+        savedId,
+      });
+
+    } catch (error) {
+      console.error('calcResilience error:', error);
+      return res.status(500).json({ error: 'Internal server error' });
+    }
+  });
+});
 
 module.exports = { calcResilience };
 
