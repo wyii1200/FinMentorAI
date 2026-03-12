@@ -12,3 +12,11 @@ GeneratedPluginRegistrant.java
 key.properties
 **/*.keystore
 **/*.jks
+
+# Firebase configuration files (contains your API keys)
+google-services.json
+GoogleService-Info.plist
+
+# Local environment secrets
+.env
+.secret.local
