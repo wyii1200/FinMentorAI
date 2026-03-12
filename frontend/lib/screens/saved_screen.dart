@@ -289,118 +289,163 @@ class SavedScreen extends StatelessWidget {
 
     await showDialog(
       context: context,
+      barrierDismissible: true,
       builder: (dialogContext) {
-        return AlertDialog(
+        final theme = Theme.of(dialogContext);
+
+        return Dialog(
+          insetPadding:
+              const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(24),
           ),
-          title: const Text('Add Savings'),
-          content: Form(
-            key: formKey,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                TextFormField(
-                  controller: controller,
-                  keyboardType:
-                      const TextInputType.numberWithOptions(decimal: true),
-                  autofocus: true,
-                  validator: (value) {
-                    final text = value?.trim() ?? '';
-                    if (text.isEmpty) return 'Please enter an amount';
-                    final amount = double.tryParse(text);
-                    if (amount == null) return 'Enter a valid number';
-                    if (amount <= 0) return 'Amount must be more than 0';
-                    return null;
-                  },
-                  decoration: InputDecoration(
-                    prefixText: 'RM ',
-                    hintText: 'e.g. 200',
-                    filled: true,
-                    fillColor: const Color(0xFFF7F9F8),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(16),
-                      borderSide: BorderSide.none,
-                    ),
-                    enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(16),
-                      borderSide: BorderSide.none,
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(16),
-                      borderSide: const BorderSide(
-                        color: AppColors.primary,
-                        width: 1.2,
+          child: AnimatedPadding(
+            duration: const Duration(milliseconds: 200),
+            curve: Curves.easeOut,
+            padding: EdgeInsets.only(
+              left: 20,
+              right: 20,
+              top: 20,
+              bottom: MediaQuery.of(dialogContext).viewInsets.bottom + 20,
+            ),
+            child: SingleChildScrollView(
+              child: Form(
+                key: formKey,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Add Savings',
+                      style: theme.textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.w800,
+                        color: AppColors.textPrimary,
                       ),
                     ),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  'Quick add',
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    const SizedBox(height: 18),
+                    TextFormField(
+                      controller: controller,
+                      keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true,
+                      ),
+                      autofocus: true,
+                      validator: (value) {
+                        final text = value?.trim() ?? '';
+                        if (text.isEmpty) return 'Please enter an amount';
+                        final amount = double.tryParse(text);
+                        if (amount == null) return 'Enter a valid number';
+                        if (amount <= 0) return 'Amount must be more than 0';
+                        return null;
+                      },
+                      decoration: InputDecoration(
+                        prefixText: 'RM ',
+                        hintText: 'e.g. 200',
+                        filled: true,
+                        fillColor: const Color(0xFFF7F9F8),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 16,
+                        ),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(16),
+                          borderSide: BorderSide.none,
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(16),
+                          borderSide: BorderSide.none,
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(16),
+                          borderSide: const BorderSide(
+                            color: AppColors.primary,
+                            width: 1.2,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      'Quick add',
+                      style: theme.textTheme.bodySmall?.copyWith(
                         color: AppColors.textSecondary,
                         fontWeight: FontWeight.w700,
                       ),
-                ),
-                const SizedBox(height: 10),
-                Wrap(
-                  spacing: 10,
-                  runSpacing: 10,
-                  children: quickAmounts.map((amount) {
-                    return ActionChip(
-                      label: Text(
-                        '+ RM ${amount.toStringAsFixed(0)}',
-                        style: const TextStyle(fontWeight: FontWeight.w700),
-                      ),
-                      backgroundColor: AppColors.subtleSuccessBg,
-                      side: BorderSide.none,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                      onPressed: () {
-                        controller.text = amount.toStringAsFixed(0);
-                      },
-                    );
-                  }).toList(),
-                ),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(dialogContext),
-              child: const Text('Cancel'),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                if (!formKey.currentState!.validate()) return;
-
-                final amount = double.parse(controller.text.trim());
-                context.read<UserProvider>().addSavings(amount);
-
-                Navigator.pop(dialogContext);
-
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(
-                      'RM ${amount.toStringAsFixed(0)} added to savings.',
                     ),
-                    behavior: SnackBarBehavior.floating,
-                  ),
-                );
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primary,
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14),
+                    const SizedBox(height: 10),
+                    Wrap(
+                      spacing: 10,
+                      runSpacing: 10,
+                      children: quickAmounts.map((amount) {
+                        return ActionChip(
+                          label: Text(
+                            '+ RM ${amount.toStringAsFixed(0)}',
+                            style: const TextStyle(fontWeight: FontWeight.w700),
+                          ),
+                          backgroundColor: AppColors.subtleSuccessBg,
+                          side: BorderSide.none,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                          onPressed: () {
+                            final current =
+                                double.tryParse(controller.text.trim()) ?? 0;
+                            controller.text =
+                                (current + amount).toStringAsFixed(0);
+                          },
+                        );
+                      }).toList(),
+                    ),
+                    const SizedBox(height: 24),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextButton(
+                            onPressed: () => Navigator.pop(dialogContext),
+                            style: TextButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                            ),
+                            child: const Text('Cancel'),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: ElevatedButton(
+                            onPressed: () {
+                              if (!formKey.currentState!.validate()) return;
+
+                              final amount =
+                                  double.parse(controller.text.trim());
+                              context.read<UserProvider>().addSavings(amount);
+
+                              Navigator.pop(dialogContext);
+
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(
+                                    'RM ${amount.toStringAsFixed(0)} added to savings.',
+                                  ),
+                                  behavior: SnackBarBehavior.floating,
+                                ),
+                              );
+                            },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppColors.primary,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(14),
+                              ),
+                            ),
+                            child: const Text('Save'),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                 ),
               ),
-              child: const Text('Save'),
             ),
-          ],
+          ),
         );
       },
     );
