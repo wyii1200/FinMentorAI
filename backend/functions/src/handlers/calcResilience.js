@@ -1,77 +1,110 @@
 /**
  * FinMentor AI — Feature 4: Financial Resilience Score
  *
- * FLUTTER SCREEN: ResilienceScreen
+ * onCall function — Flutter calls via FirebaseFunctions.instance.httpsCallable('calcResilience').
  *
- * Flutter currently has HARDCODED data — this backend makes it dynamic.
- * Match every field name to what ResilienceScreen needs to display.
+ * Data flow:
+ *   1. Flutter sends optional overrides: { savings?, fixedExp?, income?, insurance?, bnplDebt? }
+ *   2. Backend reads users/{uid} from Firestore for any missing fields
+ *      (populated by analyzeSpending on last run)
+ *   3. Calculates score and returns to Flutter
  *
- * Flutter sends:   { savings, fixedExp, income?, varExp?, insurance?, bnplDebt?, dependents? }
- *
- * Flutter uses from response:
- *   scoreOut10            → CircularProgressIndicator value (score/10), displayed as "X.X"
- *   stressTestScore       → score when stress test toggle is ON
- *   tagLabel              → AppTag text ("⚡ MODERATE RESILIENCE" etc)
- *   survivalMonths        → "~X months without income" normal text
- *   stressDays            → "X days of safety" stress test text
- *   breakdown[]           → _buildMetricsList() — 4 items with {icon, title, score, description}
- *   nextLevelLabel        → AI card title "Path to X.X (Label)"
- *   savingsGap            → AI tip "Boost emergency fund to RM{X}"
- *   aiPlan                → AI strategy text / tips
+ * Flutter reads:
+ *   scoreOut10, stressTestScore, tagLabel, survivalMonths, stressDays,
+ *   breakdown[], nextLevelLabel, savingsGap, tips[]
  */
 
-const { onRequest } = require('firebase-functions/https');
-const { authMiddleware } = require('../middleware/authMiddleware');
-const { rateLimiter } = require('../middleware/rateLimiter');
-const { computeResilience } = require('../utils/financeMath');
+const { onCall, HttpsError } = require('firebase-functions/v2/https');
+const { computeResilience }      = require('../utils/financeMath');
 const { validateResilienceInput } = require('../utils/validators');
-const { resiliencePrompt } = require('../utils/prompts');
-const { askClaude } = require('../services/geminiService');
-const { saveResilienceSnap } = require('../services/firestoreService');
-
-const { onCall, HttpsError } = require("firebase-functions/v2/https");
+const { askClaude, _mockResiliencePlan } = require('../services/geminiService');
+const { resiliencePrompt }        = require('../utils/prompts');
+const { saveResilienceSnap }      = require('../services/firestoreService');
+const admin                       = require('firebase-admin');
 
 exports.calcResilience = onCall(async (request) => {
+  // ── Auth ───────────────────────────────────────────────────────────────
+  const uid = request.auth?.uid;
+  if (!uid) throw new HttpsError('unauthenticated', 'User must be logged in.');
+
+  // ── Read user profile from Firestore (set by analyzeSpending) ─────────
+  let userDoc = {};
   try {
-    const data = request.data;
-    const uid = request.auth?.uid;
-
-    if (!uid) {
-      throw new HttpsError("unauthenticated", "User must be logged in.");
-    }
-
-    const { valid, error } = validateResilienceInput(data);
-    if (!valid) {
-      throw new HttpsError("invalid-argument", error);
-    }
-
-    const math = computeResilience(data);
-
-    const tips = [
-      "Build your emergency fund to at least 3 months of expenses.",
-      "Reduce BNPL commitments below 20% of income.",
-      "Create consistent monthly savings automation."
-    ];
-
-    return {
-      scoreOut10: math.scoreOut10,
-      stressTestScore: math.stressTestScore,
-      tagLabel: math.tagLabel,
-      survivalMonths: math.survivalMonths,
-      survivalDays: math.survivalDays,
-      stressDays: math.stressDays,
-      breakdown: math.breakdown,
-      nextLevelLabel: math.nextLevelLabel,
-      savingsGap: math.savingsGap,
-      tips,
-      aiPlan: "AI temporarily disabled"
-    };
-
-  } catch (err) {
-    console.error(err);
-    throw new HttpsError("internal", "Failed to calculate resilience");
+    const snap = await admin.firestore().collection('users').doc(uid).get();
+    if (snap.exists) userDoc = snap.data();
+  } catch (e) {
+    console.error('Firestore read error:', e.message);
   }
+
+  // ── Merge: Flutter overrides take priority, Firestore fills the gaps ───
+  const body = {
+    savings:    Number(request.data.savings    ?? userDoc.savings    ?? 0),
+    fixedExp:   Number(request.data.fixedExp   ?? userDoc.expenses   ?? 0),
+    income:     Number(request.data.income     ?? userDoc.income     ?? 0),
+    varExp:     Number(request.data.varExp     ?? 0),
+    insurance:  Number(request.data.insurance  ?? userDoc.insurance  ?? 0),
+    bnplDebt:   Number(request.data.bnplDebt   ?? userDoc.bnplCommitments ?? 0),
+    dependents: Number(request.data.dependents ?? 0),
+  };
+
+  const { valid, error } = validateResilienceInput(body);
+  if (!valid) throw new HttpsError('invalid-argument', error);
+
+  // ── Calculate ──────────────────────────────────────────────────────────
+  let math;
+  try {
+    math = computeResilience(body);
+  } catch (mathError) {
+    throw new HttpsError('invalid-argument', mathError.message);
+  }
+
+  // ── AI tips ────────────────────────────────────────────────────────────
+  let aiPlan;
+  try {
+    const { system, user } = resiliencePrompt(body, math);
+    const result = await askClaude(system, user, 400);
+    aiPlan = result ?? _mockResiliencePlan(math, body);
+  } catch (e) {
+    console.error('Gemini resilience error:', e.message);
+    aiPlan = _mockResiliencePlan(math, body);
+  }
+
+  // Parse aiPlan into tips[] array — each line becomes one bolt item in Flutter
+  const tips = aiPlan
+    .split('\n')
+    .map(line => line.replace(/^[\d]+[\.\)]\s*/, '').replace(/^[•\-]\s*/, '').trim())
+    .filter(line => line.length > 15)
+    .slice(0, 3);
+
+  // ── Save snapshot ──────────────────────────────────────────────────────
+  try {
+    await saveResilienceSnap(uid, { ...body, ...math, aiPlan });
+
+    // Also update users/{uid} with latest savings for future pre-fills
+    await admin.firestore().collection('users').doc(uid).set({
+      savings:   body.savings,
+      insurance: body.insurance,
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    }, { merge: true });
+
+  } catch (e) {
+    console.error('Firestore save error:', e.message);
+  }
+
+  return {
+    scoreOut10:      math.scoreOut10,
+    stressTestScore: math.stressTestScore,
+    tagLabel:        math.tagLabel,
+    survivalMonths:  math.survivalMonths,
+    survivalDays:    math.survivalDays,
+    stressDays:      math.stressDays,
+    breakdown:       math.breakdown,
+    nextLevelLabel:  math.nextLevelLabel,
+    savingsGap:      math.savingsGap,
+    tips,
+    aiPlan,
+    // Return the values used so Flutter knows what was pre-filled
+    usedValues: body,
+  };
 });
-
-
 

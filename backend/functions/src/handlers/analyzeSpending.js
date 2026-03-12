@@ -1,89 +1,88 @@
 /**
  * FinMentor AI — Feature 1: AI Spending Analyzer
  *
- * FLUTTER SCREEN: AnalyzerScreen
+ * Converted from onRequest → onCall.
+ * Flutter calls via FirebaseFunctions.instance.httpsCallable('analyzeSpending').
+ * Auth token is attached automatically — no manual Authorization header needed.
  *
  * Flutter sends:   { income, expenses, bnpl, savings }
- * Flutter uses from response:
- *   breakdown.pieTotal               → pie chart center "RM{total}"
- *   breakdown.bnplBurden             → InsightCard "BNPL is X% of income"
- *   breakdown.isRisky                → switches warning card icon/color/text (threshold: 15%)
- *   breakdown.monthsToSaveOneMonth   → InsightCard "takes X months to save 1 month of income"
- *   riskLevel                        → "Low" | "Medium" | "High"
- *   advice                           → AI text block
+ * Flutter reads:   breakdown.*, riskLevel, advice, savedId
+ *
+ * Side effect: updates users/{uid} doc with latest income/expenses/bnpl
+ * so calcResilience and other features can pre-fill from Firestore.
  */
 
-const { onRequest } = require('firebase-functions/https');
-const { authMiddleware } = require('../middleware/authMiddleware');
-const { rateLimiter } = require('../middleware/rateLimiter');
+const { onCall, HttpsError } = require('firebase-functions/v2/https');
 const { analyzeSpendingWithClaude } = require('../services/geminiService');
-const { saveSpendingAnalysis } = require('../services/firestoreService');
-const { calculateSpendingMetrics } = require('../utils/financeMath');
-const { validateSpendingInput } = require('../utils/validators');
+const { saveSpendingAnalysis }      = require('../services/firestoreService');
+const { calculateSpendingMetrics }  = require('../utils/financeMath');
+const { validateSpendingInput }     = require('../utils/validators');
+const admin                         = require('firebase-admin');
 
-const analyzeSpendingHandler = async (req, res) => {
-  res.set('Access-Control-Allow-Origin', '*');
-  res.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-  if (req.method === 'OPTIONS') return res.status(204).send('');
-  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed.' });
+exports.analyzeSpending = onCall(async (request) => {
+  // ── Auth ───────────────────────────────────────────────────────────────
+  const uid = request.auth?.uid;
+  if (!uid) throw new HttpsError('unauthenticated', 'User must be logged in.');
 
-  await authMiddleware(req, res, async () => {
-    try {
-      const uid = req.user.uid;
+  // ── Parse + coerce inputs ──────────────────────────────────────────────
+  const income   = Number(request.data.income   ?? 0);
+  const expenses = Number(request.data.expenses ?? 0);
+  const bnpl     = Number(request.data.bnpl     ?? 0);
+  const savings  = Number(request.data.savings  ?? 0);
 
-      const allowed = await rateLimiter(uid);
-      if (!allowed) return res.status(429).json({ error: 'Daily limit reached (10/day). Try again tomorrow.' });
+  const validationError = validateSpendingInput({ income, expenses, bnpl, savings });
+  if (validationError) throw new HttpsError('invalid-argument', validationError);
 
-      const { income, expenses, bnpl, savings } = req.body;
+  // ── Math ───────────────────────────────────────────────────────────────
+  const metrics = calculateSpendingMetrics({ income, expenses, bnpl, savings });
 
-      const validationError = validateSpendingInput({ income, expenses, bnpl, savings });
-      if (validationError) return res.status(400).json({ error: validationError });
+  // ── AI advice ──────────────────────────────────────────────────────────
+  let advice = 'AI advice temporarily unavailable.';
+  try {
+    advice = await analyzeSpendingWithClaude({ income, expenses, bnpl, savings, metrics });
+  } catch (e) {
+    console.error('Gemini spending error:', e.message);
+  }
 
-      const metrics = calculateSpendingMetrics({ income, expenses, bnpl, savings });
+  const result = {
+    breakdown: {
+      pieTotal:             metrics.pieTotal,
+      expensesSlice:        metrics.expensesSlice,
+      bnplSlice:            metrics.bnplSlice,
+      savingsSlice:         metrics.savingsSlice,
+      bnplBurden:           metrics.bnplBurden,
+      isRisky:              metrics.isRisky,
+      monthsToSaveOneMonth: metrics.monthsToSaveOneMonth,
+      savingsRate:          metrics.savingsRate,
+      disposableIncome:     metrics.disposableIncome,
+      totalExpenses:        metrics.totalExpenses,
+    },
+    riskLevel: metrics.riskLevel,
+    advice,
+    timestamp: new Date().toISOString(),
+  };
 
-      let advice;
-      try {
-        advice = await analyzeSpendingWithClaude({ income, expenses, bnpl, savings, metrics });
-      } catch (e) {
-        console.error('Claude error:', e.message);
-        advice = 'AI advice temporarily unavailable.';
-      }
+  // ── Save analysis history + update user profile ────────────────────────
+  try {
+    const savedId = await saveSpendingAnalysis(uid, {
+      ...result,
+      raw: { income, expenses, bnpl, savings },
+    });
+    result.savedId = savedId;
 
-      const result = {
-        breakdown: {
-          pieTotal: metrics.pieTotal,                          // Flutter pie center "RM{X}"
-          expensesSlice: metrics.expensesSlice,                // blue slice
-          bnplSlice: metrics.bnplSlice,                        // red slice
-          savingsSlice: metrics.savingsSlice,                  // purple slice
-          bnplBurden: metrics.bnplBurden,                      // "BNPL is X% of income"
-          isRisky: metrics.isRisky,                            // bnplBurden > 15 → warning card
-          monthsToSaveOneMonth: metrics.monthsToSaveOneMonth,  // insight card months
-          savingsRate: metrics.savingsRate,
-          disposableIncome: metrics.disposableIncome,
-          totalExpenses: metrics.totalExpenses,
-        },
-        riskLevel: metrics.riskLevel,   // "Low" | "Medium" | "High"
-        advice,
-        timestamp: new Date().toISOString(),
-      };
+    // Update users/{uid} so other features (calcResilience) can read latest values
+    await admin.firestore().collection('users').doc(uid).set({
+      income,
+      expenses,
+      bnplCommitments: bnpl,
+      savingsGoal:     savings * 6,
+      updatedAt:       admin.firestore.FieldValue.serverTimestamp(),
+    }, { merge: true });
 
-      let savedId;
-      try {
-        savedId = await saveSpendingAnalysis(uid, result);
-        result.savedId = savedId;
-      } catch (e) {
-        console.error('Firestore save error:', e.message);
-      }
+  } catch (e) {
+    console.error('Firestore error:', e.message);
+  }
 
-      return res.status(200).json(result);
+  return result;
+});
 
-    } catch (error) {
-      console.error('analyzeSpending error:', error);
-      return res.status(500).json({ error: 'Internal server error' });
-    }
-  });
-};
-
-const analyzeSpending = onRequest(analyzeSpendingHandler);
-module.exports = { analyzeSpending };
