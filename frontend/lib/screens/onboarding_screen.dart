@@ -76,47 +76,55 @@ class _OnboardingScreenState extends State<OnboardingScreen>
             end: Alignment.bottomRight,
           ),
         ),
-        child: Stack(
-          children: [
-            SafeArea(
-              child: LayoutBuilder(
-                builder: (context, constraints) {
-                  return SingleChildScrollView(
-                    physics: const BouncingScrollPhysics(),
-                    child: ConstrainedBox(
-                      constraints:
-                          BoxConstraints(minHeight: constraints.maxHeight),
-                      child: IntrinsicHeight(
-                        child: FadeTransition(
-                          opacity: _fadeAnim,
-                          child: SlideTransition(
-                            position: _slideAnim,
-                            child: Padding(
-                              padding: const EdgeInsets.fromLTRB(24, 8, 24, 20),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  _buildHeader(),
-                                  const SizedBox(height: 20),
-                                  _buildHeadline(),
-                                  const SizedBox(height: 20),
-                                  _buildAnimatedChart(bars),
-                                  const SizedBox(height: 18),
-                                  _buildFeatureList(),
-                                  const Spacer(),
-                                  _buildActionButtons(context),
-                                ],
-                              ),
-                            ),
-                          ),
+        child: SafeArea(
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final h = constraints.maxHeight;
+              final isCompact = h < 760;
+
+              final topGap = isCompact ? 16.0 : 24.0;
+              final sectionGap = isCompact ? 16.0 : 22.0;
+              final featureGap = isCompact ? 14.0 : 20.0;
+              final bottomGap = isCompact ? 18.0 : 26.0;
+
+              return SingleChildScrollView(
+                physics: const BouncingScrollPhysics(),
+                child: Padding(
+                  padding: EdgeInsets.fromLTRB(
+                    24,
+                    topGap,
+                    24,
+                    bottomGap,
+                  ),
+                  child: FadeTransition(
+                    opacity: _fadeAnim,
+                    child: SlideTransition(
+                      position: _slideAnim,
+                      child: ConstrainedBox(
+                        constraints: BoxConstraints(
+                          minHeight: h - bottomGap,
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            _buildHeader(),
+                            SizedBox(height: sectionGap),
+                            _buildHeadline(),
+                            SizedBox(height: sectionGap),
+                            _buildAnimatedChart(bars),
+                            SizedBox(height: featureGap),
+                            _buildFeatureList(),
+                            SizedBox(height: isCompact ? 20 : 28),
+                            _buildActionButtons(context),
+                          ],
                         ),
                       ),
                     ),
-                  );
-                },
-              ),
-            ),
-          ],
+                  ),
+                ),
+              );
+            },
+          ),
         ),
       ),
     );
@@ -170,19 +178,19 @@ class _OnboardingScreenState extends State<OnboardingScreen>
           'Beat debt.\nBuild wealth.\nStay resilient.',
           style: GoogleFonts.plusJakartaSans(
             color: Colors.white,
-            fontSize: 32,
+            fontSize: 30,
             fontWeight: FontWeight.w800,
-            height: 1.02,
-            letterSpacing: -1.1,
+            height: 1.08,
+            letterSpacing: -0.8,
           ),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 14),
         Text(
           'Smart AI guidance for BNPL awareness, savings habits, and stronger financial resilience.',
           style: GoogleFonts.plusJakartaSans(
             color: Colors.white.withOpacity(0.78),
-            fontSize: 14.3,
-            height: 1.5,
+            fontSize: 14,
+            height: 1.55,
             fontWeight: FontWeight.w500,
           ),
         ),
@@ -299,10 +307,10 @@ class _OnboardingScreenState extends State<OnboardingScreen>
         final accent = item['accent'] as Color;
 
         return Padding(
-          padding: const EdgeInsets.only(bottom: 10),
+          padding: const EdgeInsets.only(bottom: 12),
           child: _glassCard(
             borderRadius: 20,
-            padding: const EdgeInsets.all(14),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
             child: Row(
               children: [
                 Container(
