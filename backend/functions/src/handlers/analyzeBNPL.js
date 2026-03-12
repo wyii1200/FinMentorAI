@@ -22,7 +22,7 @@ const { rateLimiter } = require('../middleware/rateLimiter');
 const { computeBNPL } = require('../utils/financeMath');
 const { validateBNPLInput } = require('../utils/validators');
 const { bnplPrompt } = require('../utils/prompts');
-const { askClaude, ANTHROPIC_KEY } = require('../services/claudeService');
+const { askClaude, ANTHROPIC_KEY } = require('../services/geminiService');
 const { saveBNPLCheck } = require('../services/firestoreService');
 
 const analyzeBNPL = onRequest(async (req, res) => {
@@ -101,6 +101,3 @@ const analyzeBNPL = onRequest(async (req, res) => {
 });
 
 module.exports = { analyzeBNPL };
-
-
-

@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+
+import '../providers/user_provider.dart';
 import '../theme/app_theme.dart';
 import '../widgets/app_widgets.dart';
 
@@ -10,6 +13,41 @@ class SpentScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final user = context.watch<UserProvider>();
+
+    final totalSpent = user.expenses;
+
+    final shopping = totalSpent * 0.35;
+    final food = totalSpent * 0.27;
+    final transport = totalSpent * 0.18;
+    final bills = totalSpent * 0.20;
+
+    final categories = [
+      _SpendingCategory(
+        title: 'Shopping',
+        amount: shopping,
+        color: AppColors.warning,
+      ),
+      _SpendingCategory(
+        title: 'Food & Drinks',
+        amount: food,
+        color: AppColors.info,
+      ),
+      _SpendingCategory(
+        title: 'Transport',
+        amount: transport,
+        color: AppColors.primary,
+      ),
+      _SpendingCategory(
+        title: 'Bills',
+        amount: bills,
+        color: AppColors.success,
+      ),
+    ];
+
+    final topCategory = categories.reduce(
+      (a, b) => a.amount >= b.amount ? a : b,
+    );
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -61,7 +99,7 @@ class SpentScreen extends StatelessWidget {
                         ),
                         const SizedBox(height: 8),
                         Text(
-                          'RM 2,800.00',
+                          _formatCurrency(totalSpent),
                           style: theme.textTheme.displayMedium?.copyWith(
                             fontWeight: FontWeight.w900,
                             color: AppColors.danger,
@@ -69,7 +107,9 @@ class SpentScreen extends StatelessWidget {
                         ),
                         const SizedBox(height: 10),
                         Text(
-                          'Your largest expense category is Shopping, followed by Food & Drinks.',
+                          totalSpent > 0
+                              ? 'Your largest estimated expense category is ${topCategory.title}.'
+                              : 'No spending data has been added yet. Complete your financial setup to unlock more useful insights.',
                           style: theme.textTheme.bodyMedium?.copyWith(
                             color: AppColors.textPrimary,
                             height: 1.45,
@@ -80,10 +120,18 @@ class SpentScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 20),
                   Text(
-                    'Category Breakdown',
+                    'Estimated Category Breakdown',
                     style: theme.textTheme.titleMedium?.copyWith(
                       fontWeight: FontWeight.w800,
                       color: AppColors.textPrimary,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    'These categories are a simple frontend estimate until detailed spending records are connected.',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: AppColors.textSecondary,
+                      height: 1.4,
                     ),
                   ),
                   const SizedBox(height: 12),
@@ -93,37 +141,37 @@ class SpentScreen extends StatelessWidget {
                         _buildCategoryItem(
                           context,
                           title: 'Shopping',
-                          amount: 'RM 1,200',
-                          share: '43%',
+                          amount: _formatCurrencyCompact(shopping),
+                          share: _shareText(shopping, totalSpent),
                           color: AppColors.warning,
-                          progress: 0.43,
+                          progress: _progress(shopping, totalSpent),
                           isLast: false,
                         ),
                         _buildCategoryItem(
                           context,
                           title: 'Food & Drinks',
-                          amount: 'RM 800',
-                          share: '29%',
+                          amount: _formatCurrencyCompact(food),
+                          share: _shareText(food, totalSpent),
                           color: AppColors.info,
-                          progress: 0.29,
+                          progress: _progress(food, totalSpent),
                           isLast: false,
                         ),
                         _buildCategoryItem(
                           context,
                           title: 'Transport',
-                          amount: 'RM 400',
-                          share: '14%',
+                          amount: _formatCurrencyCompact(transport),
+                          share: _shareText(transport, totalSpent),
                           color: AppColors.primary,
-                          progress: 0.14,
+                          progress: _progress(transport, totalSpent),
                           isLast: false,
                         ),
                         _buildCategoryItem(
                           context,
                           title: 'Bills',
-                          amount: 'RM 400',
-                          share: '14%',
+                          amount: _formatCurrencyCompact(bills),
+                          share: _shareText(bills, totalSpent),
                           color: AppColors.success,
-                          progress: 0.14,
+                          progress: _progress(bills, totalSpent),
                           isLast: true,
                         ),
                       ],
@@ -142,7 +190,7 @@ class SpentScreen extends StatelessWidget {
                         const SizedBox(width: 10),
                         Expanded(
                           child: Text(
-                            'Reducing discretionary spending in Shopping by even 10% could improve your monthly savings noticeably.',
+                            _spendingInsight(user, topCategory.title),
                             style: theme.textTheme.bodyMedium?.copyWith(
                               color: AppColors.textPrimary,
                               height: 1.45,
@@ -214,7 +262,7 @@ class SpentScreen extends StatelessWidget {
                   value: progress,
                   minHeight: 8,
                   color: color,
-                  backgroundColor: color.withValues(alpha: 0.14),
+                  backgroundColor: color.withOpacity(0.14),
                 ),
               ),
             ],
@@ -224,4 +272,53 @@ class SpentScreen extends StatelessWidget {
       ],
     );
   }
+
+  String _spendingInsight(UserProvider user, String topCategory) {
+    if (user.expenses <= 0) {
+      return 'Once your monthly expenses are added, FinMentor AI can highlight which categories may be limiting your savings potential.';
+    }
+
+    if (user.availableToSave < 0) {
+      return 'Your current spending is above your monthly financial capacity. Start by reviewing $topCategory and any non-essential expenses.';
+    }
+
+    if (user.expenses > user.income * 0.6) {
+      return 'Your spending is taking a large share of income. Reducing $topCategory even slightly could improve monthly breathing room.';
+    }
+
+    return 'Your spending is still within a more manageable range, but trimming $topCategory could strengthen your savings rate further.';
+  }
+
+  String _formatCurrency(double value) {
+    return 'RM ${value.toStringAsFixed(2)}';
+  }
+
+  String _formatCurrencyCompact(double value) {
+    if (value >= 1000) {
+      return 'RM ${(value / 1000).toStringAsFixed(1)}k';
+    }
+    return 'RM ${value.toStringAsFixed(0)}';
+  }
+
+  String _shareText(double amount, double total) {
+    if (total <= 0) return '0%';
+    return '${((amount / total) * 100).round()}%';
+  }
+
+  double _progress(double amount, double total) {
+    if (total <= 0) return 0;
+    return (amount / total).clamp(0.0, 1.0);
+  }
+}
+
+class _SpendingCategory {
+  final String title;
+  final double amount;
+  final Color color;
+
+  const _SpendingCategory({
+    required this.title,
+    required this.amount,
+    required this.color,
+  });
 }

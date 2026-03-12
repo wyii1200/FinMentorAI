@@ -47,6 +47,9 @@ class ProfileScreen extends StatelessWidget {
                 backgroundColor: AppColors.danger,
                 foregroundColor: Colors.white,
                 minimumSize: const Size(100, 44),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
               ),
               child: const Text('Log Out'),
             ),
@@ -66,12 +69,24 @@ class ProfileScreen extends StatelessWidget {
     );
   }
 
+  void _showComingSoon(BuildContext context, String title) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('$title will be available soon.'),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final userProvider = context.watch<UserProvider>();
+    final user = context.watch<UserProvider>();
+
     final displayName =
-        userProvider.userName.trim().isEmpty ? 'Amir' : userProvider.userName;
+        user.userName.trim().isEmpty ? 'FinMentor User' : user.userName.trim();
+    final firstName = displayName.split(' ').first;
+    final initial = firstName.isNotEmpty ? firstName[0].toUpperCase() : 'F';
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -99,45 +114,9 @@ class ProfileScreen extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            AppCard(
-              child: Row(
-                children: [
-                  const CircleAvatar(
-                    radius: 30,
-                    backgroundImage: NetworkImage(
-                      'https://i.pravatar.cc/150?u=finmentor-user',
-                    ),
-                  ),
-                  const SizedBox(width: 14),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          displayName,
-                          style: theme.textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.w800,
-                            color: AppColors.textPrimary,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          'User ID: #1024',
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: AppColors.textSecondary,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  AppTag(
-                    label: 'ASEAN Youth',
-                    bgColor: AppColors.subtleInfoBg,
-                    textColor: AppColors.info,
-                  ),
-                ],
-              ),
-            ),
+            _buildProfileHeader(theme, user, displayName, initial),
+            const SizedBox(height: 20),
+            _buildFinancialProfileCard(theme, user),
             const SizedBox(height: 24),
             Text(
               'Account',
@@ -154,20 +133,25 @@ class ProfileScreen extends StatelessWidget {
                   _ProfileTile(
                     icon: Icons.person_outline_rounded,
                     title: 'Personal Information',
-                    subtitle: 'Name, email, language preferences',
+                    subtitle: 'Name, account identity, preferences',
                     isLast: false,
+                    onTap: () =>
+                        _showComingSoon(context, 'Personal Information'),
                   ),
                   _ProfileTile(
                     icon: Icons.security_rounded,
                     title: 'Security Settings',
                     subtitle: 'Password, privacy, login protection',
                     isLast: false,
+                    onTap: () => _showComingSoon(context, 'Security Settings'),
                   ),
                   _ProfileTile(
                     icon: Icons.notifications_none_rounded,
                     title: 'Notification Preferences',
                     subtitle: 'Alerts, reminders, financial tips',
                     isLast: true,
+                    onTap: () =>
+                        _showComingSoon(context, 'Notification Preferences'),
                   ),
                 ],
               ),
@@ -190,12 +174,14 @@ class ProfileScreen extends StatelessWidget {
                     title: 'Help Center',
                     subtitle: 'Learn how to use FinMentor AI',
                     isLast: false,
+                    onTap: () => _showComingSoon(context, 'Help Center'),
                   ),
                   _ProfileTile(
                     icon: Icons.info_outline_rounded,
                     title: 'About FinMentor AI',
                     subtitle: 'Version, mission, transparency',
                     isLast: true,
+                    onTap: () => _showAboutDialog(context),
                   ),
                 ],
               ),
@@ -236,6 +222,213 @@ class ProfileScreen extends StatelessWidget {
       ),
     );
   }
+
+  Widget _buildProfileHeader(
+    ThemeData theme,
+    UserProvider user,
+    String displayName,
+    String initial,
+  ) {
+    final scoreOutOfTen = (user.resilienceScore / 10).clamp(0.0, 10.0);
+
+    return AppCard(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          CircleAvatar(
+            radius: 30,
+            backgroundColor: AppColors.primary.withOpacity(0.14),
+            child: Text(
+              initial,
+              style: theme.textTheme.titleLarge?.copyWith(
+                color: AppColors.primary,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  displayName,
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w800,
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Resilience Score: ${scoreOutOfTen.toStringAsFixed(1)} / 10',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    AppTag(
+                      label: 'ASEAN Youth',
+                      bgColor: AppColors.subtleInfoBg,
+                      textColor: AppColors.info,
+                    ),
+                    AppTag(
+                      label: user.currentSavings > 0
+                          ? 'Active Saver'
+                          : 'Starter Profile',
+                      bgColor: AppColors.subtleSuccessBg,
+                      textColor: AppColors.success,
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFinancialProfileCard(ThemeData theme, UserProvider user) {
+    return AppCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Financial Profile',
+            style: theme.textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.w800,
+              color: AppColors.textPrimary,
+            ),
+          ),
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              Expanded(
+                child: _miniStat(
+                  theme,
+                  label: 'Income',
+                  value: _formatCompact(user.income),
+                  color: AppColors.primary,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _miniStat(
+                  theme,
+                  label: 'BNPL',
+                  value: _formatCompact(user.bnplCommitments),
+                  color: AppColors.danger,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(
+                child: _miniStat(
+                  theme,
+                  label: 'Savings',
+                  value: _formatCompact(user.currentSavings),
+                  color: AppColors.info,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _miniStat(
+                  theme,
+                  label: 'Goal',
+                  value: _formatCompact(user.savingsGoal),
+                  color: AppColors.success,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _miniStat(
+    ThemeData theme, {
+    required String label,
+    required String value,
+    required Color color,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppColors.background,
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: AppColors.textSecondary,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            value,
+            style: theme.textTheme.titleMedium?.copyWith(
+              color: color,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showAboutDialog(BuildContext context) {
+    final theme = Theme.of(context);
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(24),
+          ),
+          title: Text(
+            'About FinMentor AI',
+            style: theme.textTheme.titleLarge?.copyWith(
+              fontWeight: FontWeight.w800,
+              color: AppColors.textPrimary,
+            ),
+          ),
+          content: Text(
+            'FinMentor AI helps ASEAN youth build stronger financial resilience through savings guidance, BNPL risk awareness, and future scenario planning.',
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: AppColors.textSecondary,
+              height: 1.5,
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Close'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  String _formatCompact(double value) {
+    if (value >= 1000) {
+      return 'RM ${(value / 1000).toStringAsFixed(1)}k';
+    }
+    return 'RM ${value.toStringAsFixed(0)}';
+  }
 }
 
 class _ProfileTile extends StatelessWidget {
@@ -243,12 +436,14 @@ class _ProfileTile extends StatelessWidget {
   final String title;
   final String subtitle;
   final bool isLast;
+  final VoidCallback onTap;
 
   const _ProfileTile({
     required this.icon,
     required this.title,
     required this.subtitle,
     required this.isLast,
+    required this.onTap,
   });
 
   @override
@@ -292,7 +487,7 @@ class _ProfileTile extends StatelessWidget {
             size: 16,
             color: AppColors.textSecondary,
           ),
-          onTap: () {},
+          onTap: onTap,
         ),
         if (!isLast) const Divider(height: 1, indent: 72, endIndent: 16),
       ],

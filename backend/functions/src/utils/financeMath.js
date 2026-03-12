@@ -353,4 +353,3 @@ function round(n) {
 }
 
 module.exports = { calculateSpendingMetrics, computeFutureSimulation, computeBNPL, computeResilience };
-

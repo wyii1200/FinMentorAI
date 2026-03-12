@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+
+import '../providers/user_provider.dart';
 import '../theme/app_theme.dart';
 import '../widgets/app_widgets.dart';
 
@@ -11,14 +14,43 @@ class BNPLScreen extends StatefulWidget {
 
 class _BNPLScreenState extends State<BNPLScreen> {
   bool _explained = false;
+  bool _initialized = false;
 
-  final _amountController = TextEditingController(text: '1200');
-  final _durationController = TextEditingController(text: '6');
-  final _interestController = TextEditingController(text: '1.5');
+  late final TextEditingController _amountController;
+  late final TextEditingController _durationController;
+  late final TextEditingController _interestController;
 
   double get _amount => double.tryParse(_amountController.text.trim()) ?? 0;
   double get _duration => double.tryParse(_durationController.text.trim()) ?? 0;
   double get _interest => double.tryParse(_interestController.text.trim()) ?? 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _amountController = TextEditingController();
+    _durationController = TextEditingController();
+    _interestController = TextEditingController();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+
+    if (_initialized) return;
+
+    final user = context.read<UserProvider>();
+
+    final suggestedAmount =
+        user.bnplCommitments > 0 ? user.bnplCommitments : 1200.0;
+    final suggestedDuration = user.bnplCommitments > 0 ? 6.0 : 6.0;
+    final suggestedInterest = 1.5;
+
+    _amountController.text = suggestedAmount.toStringAsFixed(0);
+    _durationController.text = suggestedDuration.toStringAsFixed(0);
+    _interestController.text = suggestedInterest.toStringAsFixed(1);
+
+    _initialized = true;
+  }
 
   @override
   void dispose() {
@@ -53,7 +85,10 @@ class _BNPLScreenState extends State<BNPLScreen> {
 
   void _showMessage(String text) {
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(text)),
+      SnackBar(
+        content: Text(text),
+        behavior: SnackBarBehavior.floating,
+      ),
     );
   }
 
@@ -69,12 +104,12 @@ class _BNPLScreenState extends State<BNPLScreen> {
         principal == 0 ? 0 : ((totalRepayment - principal) / principal) * 100;
 
     return {
-      'principal': principal.toDouble(),
-      'interest': totalInterest.toDouble(),
-      'total': totalRepayment.toDouble(),
-      'monthly': monthlyInstallment.toDouble(),
+      'principal': principal,
+      'interest': totalInterest,
+      'total': totalRepayment,
+      'monthly': monthlyInstallment,
       'months': months.toDouble(),
-      'rate': monthlyRate.toDouble(),
+      'rate': monthlyRate,
       'overpaymentPercent': overpaymentPercent.toDouble(),
     };
   }
@@ -108,22 +143,33 @@ class _BNPLScreenState extends State<BNPLScreen> {
     return AppColors.subtleSuccessBg;
   }
 
-  String get _riskExplanation {
+  String _riskExplanation(UserProvider user) {
     final data = _calculateData();
     final overpay = data['overpaymentPercent']!.toStringAsFixed(1);
+    final monthly = data['monthly']!;
+    final income = user.income;
+    final monthlyShare =
+        income > 0 ? ((monthly / income) * 100).toStringAsFixed(0) : null;
 
     if (_isHighRisk) {
-      return 'This plan is costly. You may repay about $overpay% more than the original price, and longer repayment increases the chance of late-payment stress.';
+      return income > 0
+          ? 'This plan is costly. You may repay about $overpay% more than the original price, and the monthly installment takes about $monthlyShare% of your income.'
+          : 'This plan is costly. You may repay about $overpay% more than the original price, and longer repayment increases late-payment stress.';
     }
+
     if (_isMediumRisk) {
-      return 'This plan is manageable, but still adds repayment pressure. Make sure the monthly installment fits comfortably into your budget.';
+      return income > 0
+          ? 'This plan is manageable, but still adds pressure. The monthly installment uses about $monthlyShare% of your income.'
+          : 'This plan is manageable, but still adds repayment pressure. Make sure the monthly installment fits comfortably into your budget.';
     }
-    return 'This plan is relatively safer, but it is still debt. Late payments can still trigger penalties and affect future borrowing confidence.';
+
+    return 'This plan is relatively safer, but it is still debt. Late payments can still trigger penalties and reduce future flexibility.';
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final user = context.watch<UserProvider>();
 
     return SingleChildScrollView(
       physics: const BouncingScrollPhysics(
@@ -143,10 +189,18 @@ class _BNPLScreenState extends State<BNPLScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Enter Your BNPL Plan',
+                  'Review Your BNPL Plan',
                   style: theme.textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.w700,
                     color: AppColors.textPrimary,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Estimate the repayment burden and understand how this plan may affect your monthly financial flexibility.',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: AppColors.textSecondary,
+                    height: 1.45,
                   ),
                 ),
                 const SizedBox(height: 20),
@@ -180,7 +234,6 @@ class _BNPLScreenState extends State<BNPLScreen> {
                   ],
                 ),
                 const SizedBox(height: 24),
-                const SizedBox(height: 24),
                 PrimaryButton(
                   label: 'Explain My Risk',
                   bgColor: AppColors.warning,
@@ -209,11 +262,10 @@ class _BNPLScreenState extends State<BNPLScreen> {
                       Expanded(
                         child: Text(
                           'This is an educational estimate, not official financial advice.',
-                          style:
-                              Theme.of(context).textTheme.bodySmall?.copyWith(
-                                    color: AppColors.textSecondary,
-                                    height: 1.4,
-                                  ),
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: AppColors.textSecondary,
+                            height: 1.4,
+                          ),
                         ),
                       ),
                     ],
@@ -224,24 +276,24 @@ class _BNPLScreenState extends State<BNPLScreen> {
           ),
           if (_explained) ...[
             const SizedBox(height: 20),
-            _buildRiskSummaryCard(theme),
+            _buildRiskSummaryCard(theme, user),
             const SizedBox(height: 14),
             _buildRepaymentCard(theme),
             const SizedBox(height: 14),
-            _buildMonthlyBreakdownCard(theme),
+            _buildMonthlyBreakdownCard(theme, user),
             const SizedBox(height: 14),
             _buildPenaltyRiskCard(theme),
             const SizedBox(height: 14),
-            _buildCreditScoreCard(theme),
+            _buildCashFlowImpactCard(theme, user),
             const SizedBox(height: 14),
-            _buildFinMentorAdviceCard(theme),
+            _buildFinMentorAdviceCard(theme, user),
           ],
         ],
       ),
     );
   }
 
-  Widget _buildRiskSummaryCard(ThemeData theme) {
+  Widget _buildRiskSummaryCard(ThemeData theme, UserProvider user) {
     return AppCard(
       color: _riskBgColor,
       child: Row(
@@ -276,7 +328,7 @@ class _BNPLScreenState extends State<BNPLScreen> {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  _riskExplanation,
+                  _riskExplanation(user),
                   style: theme.textTheme.bodyMedium?.copyWith(
                     color: AppColors.textPrimary,
                     height: 1.45,
@@ -332,8 +384,11 @@ class _BNPLScreenState extends State<BNPLScreen> {
     );
   }
 
-  Widget _buildMonthlyBreakdownCard(ThemeData theme) {
+  Widget _buildMonthlyBreakdownCard(ThemeData theme, UserProvider user) {
     final data = _calculateData();
+    final monthly = data['monthly']!;
+    final income = user.income;
+    final monthlyShare = income > 0 ? (monthly / income) * 100 : 0.0;
 
     return _riskCard(
       theme,
@@ -343,7 +398,7 @@ class _BNPLScreenState extends State<BNPLScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'RM ${data['monthly']!.toStringAsFixed(2)} / month',
+            'RM ${monthly.toStringAsFixed(2)} / month',
             style: theme.textTheme.titleLarge?.copyWith(
               fontWeight: FontWeight.w800,
               color: AppColors.primary,
@@ -356,6 +411,16 @@ class _BNPLScreenState extends State<BNPLScreen> {
               color: AppColors.textSecondary,
             ),
           ),
+          if (income > 0) ...[
+            const SizedBox(height: 8),
+            Text(
+              'That is about ${monthlyShare.toStringAsFixed(1)}% of your monthly income.',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: AppColors.textSecondary,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
         ],
       ),
     );
@@ -381,7 +446,7 @@ class _BNPLScreenState extends State<BNPLScreen> {
           ),
           const SizedBox(height: 6),
           Text(
-            'Repeated missed payments may increase stress, reduce repayment flexibility, and hurt future creditworthiness.',
+            'Repeated missed payments may increase stress, reduce repayment flexibility, and hurt future borrowing confidence.',
             style: theme.textTheme.bodyMedium?.copyWith(
               color: AppColors.danger,
               fontWeight: FontWeight.w600,
@@ -393,49 +458,39 @@ class _BNPLScreenState extends State<BNPLScreen> {
     );
   }
 
-  Widget _buildCreditScoreCard(ThemeData theme) {
-    final scoreDrop = _isHighRisk
-        ? 60
-        : _isMediumRisk
-            ? 35
-            : 15;
-    const currentScore = 680;
-    final riskScore = currentScore - scoreDrop;
-    final progressValue = riskScore / 1000;
+  Widget _buildCashFlowImpactCard(ThemeData theme, UserProvider user) {
+    final data = _calculateData();
+    final monthly = data['monthly']!;
+    final available = user.availableToSave;
+    final afterBnpl = available - monthly;
+    final healthy = afterBnpl >= 0;
 
     return _riskCard(
       theme,
       '📊',
-      'Credit Score Impact',
+      'Cash Flow Impact',
       Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'Current: $currentScore',
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: AppColors.textSecondary,
-                ),
-              ),
-              Text(
-                'Risk: $riskScore',
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: AppColors.textSecondary,
-                ),
-              ),
-            ],
+          Text(
+            healthy
+                ? 'After this BNPL payment, you may still keep about RM ${afterBnpl.toStringAsFixed(0)} available each month.'
+                : 'This BNPL plan may push your monthly budget negative by about RM ${afterBnpl.abs().toStringAsFixed(0)}.',
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: AppColors.textPrimary,
+              height: 1.45,
+            ),
           ),
           const SizedBox(height: 10),
           AppProgressBar(
-            value: progressValue.clamp(0.0, 1.0),
-            color: _riskColor,
+            value:
+                user.income > 0 ? (monthly / user.income).clamp(0.0, 1.0) : 0,
+            color: healthy ? AppColors.warning : AppColors.danger,
             height: 10,
           ),
           const SizedBox(height: 10),
           Text(
-            'Your score could drop about $scoreDrop points if payments are missed repeatedly.',
+            'This bar shows how much of your income the BNPL installment may consume each month.',
             style: theme.textTheme.bodySmall?.copyWith(
               color: AppColors.textSecondary,
               fontStyle: FontStyle.italic,
@@ -446,12 +501,25 @@ class _BNPLScreenState extends State<BNPLScreen> {
     );
   }
 
-  Widget _buildFinMentorAdviceCard(ThemeData theme) {
+  Widget _buildFinMentorAdviceCard(ThemeData theme, UserProvider user) {
     final data = _calculateData();
     final total = data['total']!;
     final principal = data['principal']!;
+    final monthly = data['monthly']!;
+    final extraCost = total - principal;
 
-    final saveFirstDifference = total - principal;
+    String advice;
+
+    if (user.availableToSave - monthly < 0) {
+      advice =
+          'This BNPL plan could strain your monthly cash flow. Delaying the purchase or choosing a smaller amount may protect your resilience better.';
+    } else if (_isHighRisk) {
+      advice =
+          'If you delay this purchase and save first, you may avoid about RM ${extraCost.toStringAsFixed(2)} in extra repayment cost. The plan looks expensive relative to its repayment period.';
+    } else {
+      advice =
+          'This plan is more manageable, but saving first would still help you avoid about RM ${extraCost.toStringAsFixed(2)} in extra repayment cost and reduce future debt pressure.';
+    }
 
     return Container(
       padding: const EdgeInsets.all(18),
@@ -481,9 +549,9 @@ class _BNPLScreenState extends State<BNPLScreen> {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'If you delay this purchase and save first, you may avoid about RM ${saveFirstDifference.toStringAsFixed(2)} in extra repayment cost. BNPL may feel small monthly, but the long-term burden is still real.',
+                  advice,
                   style: theme.textTheme.bodyMedium?.copyWith(
-                    color: Colors.white.withValues(alpha: 0.92),
+                    color: Colors.white.withOpacity(0.92),
                     height: 1.5,
                   ),
                 ),

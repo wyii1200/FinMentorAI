@@ -16,7 +16,7 @@
 const { onRequest } = require('firebase-functions/https');
 const { authMiddleware } = require('../middleware/authMiddleware');
 const { rateLimiter } = require('../middleware/rateLimiter');
-const { analyzeSpendingWithClaude } = require('../services/claudeService');
+const { analyzeSpendingWithClaude } = require('../services/geminiService');
 const { saveSpendingAnalysis } = require('../services/firestoreService');
 const { calculateSpendingMetrics } = require('../utils/financeMath');
 const { validateSpendingInput } = require('../utils/validators');
@@ -87,4 +87,3 @@ const analyzeSpendingHandler = async (req, res) => {
 
 const analyzeSpending = onRequest(analyzeSpendingHandler);
 module.exports = { analyzeSpending };
-

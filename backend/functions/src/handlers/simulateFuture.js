@@ -22,7 +22,7 @@
 const { onRequest } = require('firebase-functions/https');
 const { authMiddleware } = require('../middleware/authMiddleware');
 const { rateLimiter } = require('../middleware/rateLimiter');
-const { simulateFutureWithClaude } = require('../services/claudeService');
+const { simulateFutureWithClaude } = require('../services/geminiService');
 const { saveSimulation } = require('../services/firestoreService');
 const { computeFutureSimulation } = require('../utils/financeMath');
 const { validateSimulationInput } = require('../utils/validators');
@@ -98,4 +98,3 @@ const simulateFutureHandler = async (req, res) => {
 
 const simulateFuture = onRequest(simulateFutureHandler);
 module.exports = { simulateFuture };
-

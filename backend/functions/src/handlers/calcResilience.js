@@ -26,97 +26,52 @@ const { rateLimiter } = require('../middleware/rateLimiter');
 const { computeResilience } = require('../utils/financeMath');
 const { validateResilienceInput } = require('../utils/validators');
 const { resiliencePrompt } = require('../utils/prompts');
-const { askClaude } = require('../services/claudeService');
+const { askClaude } = require('../services/geminiService');
 const { saveResilienceSnap } = require('../services/firestoreService');
 
-const calcResilience = onRequest(async (req, res) => {
-  res.set('Access-Control-Allow-Origin', '*');
-  res.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-  if (req.method === 'OPTIONS') return res.status(204).send('');
-  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed.' });
+const { onCall, HttpsError } = require("firebase-functions/v2/https");
 
-  await authMiddleware(req, res, async () => {
-    try {
-      const uid = req.user.uid;
+exports.calcResilience = onCall(async (request) => {
+  try {
+    const data = request.data;
+    const uid = request.auth?.uid;
 
-      const allowed = await rateLimiter(uid);
-      if (!allowed) return res.status(429).json({ error: 'Daily limit reached (10/day). Try again tomorrow.' });
-
-      const { valid, error } = validateResilienceInput(req.body);
-      if (!valid) return res.status(400).json({ error });
-
-      let math;
-      try {
-        math = computeResilience(req.body);
-      } catch (mathError) {
-        return res.status(400).json({ error: mathError.message });
-      }
-
-      // AI action plan
-      let aiPlan;
-      try {
-        const { system, user } = resiliencePrompt(req.body, math);
-        aiPlan = await askClaude(system, user);
-      } catch (aiError) {
-        console.error('Claude error:', aiError.message);
-        aiPlan = 'AI plan temporarily unavailable.';
-      }
-
-      // Parse aiPlan into tips[] array so Flutter can map each to _tipItem()
-      // AI is prompted to return numbered tips — we split on \n and filter
-      const tips = aiPlan
-        .split('\n')
-        .map(line => line.replace(/^\d+[\.\)]\s*/, '').trim())
-        .filter(line => line.length > 10)
-        .slice(0, 3);  // Flutter shows exactly 3 tips
-
-      let savedId;
-      try {
-        savedId = await saveResilienceSnap(uid, { ...req.body, ...math, aiPlan });
-      } catch (dbError) {
-        console.error('Firestore save error:', dbError.message);
-      }
-
-      return res.status(200).json({
-        // Flutter CircularProgressIndicator
-        scoreOut10: math.scoreOut10,            // progress = scoreOut10 / 10
-        stressTestScore: math.stressTestScore,  // stress toggle value
-
-        // Flutter tag + description text
-        tagLabel: math.tagLabel,
-        survivalMonths: math.survivalMonths,    // "~X months without income"
-        survivalDays: math.survivalDays,
-        stressDays: math.stressDays,            // "X days of safety"
-
-        // Flutter 4-item breakdown list
-        breakdown: math.breakdown,              // [{icon, title, score, description}]
-
-        // Flutter AI card
-        nextLevelLabel: math.nextLevelLabel,    // "Path to X.X (Label)"
-        savingsGap: math.savingsGap,            // "Boost emergency fund to RM{X}"
-        tips,                                   // Flutter maps each to _tipItem()
-        aiPlan,
-
-        // Raw data for history/debug
-        raw: {
-          scoreMonths: math.scoreMonths,
-          monthlyBurn: math.monthlyBurn,
-          netAssets: math.netAssets,
-          level: math.level,
-          targetMonths: math.targetMonths,
-          monthsToTarget: math.monthsToTarget,
-        },
-
-        savedId,
-      });
-
-    } catch (error) {
-      console.error('calcResilience error:', error);
-      return res.status(500).json({ error: 'Internal server error' });
+    if (!uid) {
+      throw new HttpsError("unauthenticated", "User must be logged in.");
     }
-  });
+
+    const { valid, error } = validateResilienceInput(data);
+    if (!valid) {
+      throw new HttpsError("invalid-argument", error);
+    }
+
+    const math = computeResilience(data);
+
+    const tips = [
+      "Build your emergency fund to at least 3 months of expenses.",
+      "Reduce BNPL commitments below 20% of income.",
+      "Create consistent monthly savings automation."
+    ];
+
+    return {
+      scoreOut10: math.scoreOut10,
+      stressTestScore: math.stressTestScore,
+      tagLabel: math.tagLabel,
+      survivalMonths: math.survivalMonths,
+      survivalDays: math.survivalDays,
+      stressDays: math.stressDays,
+      breakdown: math.breakdown,
+      nextLevelLabel: math.nextLevelLabel,
+      savingsGap: math.savingsGap,
+      tips,
+      aiPlan: "AI temporarily disabled"
+    };
+
+  } catch (err) {
+    console.error(err);
+    throw new HttpsError("internal", "Failed to calculate resilience");
+  }
 });
 
-module.exports = { calcResilience };
+
 

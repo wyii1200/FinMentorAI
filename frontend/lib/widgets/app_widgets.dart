@@ -26,12 +26,12 @@ class SectionHeader extends StatelessWidget {
             letterSpacing: -0.5,
           ),
         ),
-        const SizedBox(height: 4),
+        const SizedBox(height: 6),
         Text(
           subtitle,
           style: theme.textTheme.bodyMedium?.copyWith(
             color: AppColors.textSecondary,
-            height: 1.4,
+            height: 1.45,
           ),
         ),
       ],
@@ -69,9 +69,10 @@ class AppInputField extends StatelessWidget {
         Text(
           label,
           style: theme.textTheme.bodySmall?.copyWith(
-            fontSize: 13,
-            fontWeight: FontWeight.w700,
-            color: AppColors.textPrimary,
+            fontSize: 10,
+            fontWeight: FontWeight.w800,
+            color: AppColors.textSecondary,
+            letterSpacing: 1,
           ),
         ),
         const SizedBox(height: 8),
@@ -83,6 +84,7 @@ class AppInputField extends StatelessWidget {
           textInputAction: textInputAction,
           style: theme.textTheme.bodyMedium?.copyWith(
             color: AppColors.textPrimary,
+            fontWeight: FontWeight.w600,
           ),
           decoration: InputDecoration(
             suffixIcon: suffixIcon,
@@ -113,16 +115,16 @@ class PrimaryButton extends StatelessWidget {
 
     return SizedBox(
       width: double.infinity,
+      height: 56,
       child: ElevatedButton(
         onPressed: isLoading ? null : onTap,
         style: ElevatedButton.styleFrom(
           backgroundColor: bgColor ?? AppColors.primary,
           foregroundColor: Colors.white,
-          padding: const EdgeInsets.symmetric(vertical: 18),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
           elevation: 0,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(18),
+          ),
         ),
         child: isLoading
             ? const SizedBox(
@@ -130,7 +132,7 @@ class PrimaryButton extends StatelessWidget {
                 height: 22,
                 child: CircularProgressIndicator(
                   color: Colors.white,
-                  strokeWidth: 2,
+                  strokeWidth: 2.2,
                 ),
               )
             : Text(
@@ -200,11 +202,12 @@ class InsightCard extends StatelessWidget {
     final theme = Theme.of(context);
 
     return Container(
+      width: double.infinity,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: bgColor,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: textColor.withValues(alpha: 0.12)),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: textColor.withOpacity(0.12)),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -255,9 +258,9 @@ class GradientCard extends StatelessWidget {
         ),
         boxShadow: [
           BoxShadow(
-            color: colors.first.withValues(alpha: 0.30),
-            blurRadius: 12,
-            offset: const Offset(0, 6),
+            color: colors.first.withOpacity(0.22),
+            blurRadius: 22,
+            offset: const Offset(0, 10),
           ),
         ],
       ),
@@ -286,9 +289,14 @@ class AppCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: color ?? Colors.white,
         borderRadius: BorderRadius.circular(24),
+        border: Border.all(
+          color: (color ?? Colors.white) == Colors.white
+              ? AppColors.border
+              : Colors.transparent,
+        ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
+            color: Colors.black.withOpacity(0.04),
             blurRadius: 20,
             offset: const Offset(0, 10),
           ),
@@ -336,7 +344,8 @@ class StatCard extends StatelessWidget {
             style: theme.textTheme.bodySmall?.copyWith(
               fontSize: 10,
               color: AppColors.textSecondary,
-              fontWeight: FontWeight.w600,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 0.3,
             ),
           ),
           const SizedBox(height: 4),
@@ -354,7 +363,7 @@ class StatCard extends StatelessWidget {
             trend,
             style: theme.textTheme.bodySmall?.copyWith(
               fontSize: 10,
-              fontWeight: FontWeight.w700,
+              fontWeight: FontWeight.w800,
               color: trendUp ? AppColors.success : AppColors.danger,
             ),
           ),
@@ -392,6 +401,7 @@ class AppTag extends StatelessWidget {
           color: textColor,
           fontSize: 10,
           fontWeight: FontWeight.w900,
+          letterSpacing: 0.3,
         ),
       ),
     );
@@ -428,13 +438,14 @@ class FeatureButton extends StatelessWidget {
           decoration: BoxDecoration(
             color: bgColor,
             borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: accentColor.withOpacity(0.08)),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Container(
-                padding: const EdgeInsets.all(6),
+                padding: const EdgeInsets.all(8),
                 decoration: const BoxDecoration(
                   color: Colors.white,
                   shape: BoxShape.circle,
@@ -444,9 +455,10 @@ class FeatureButton extends StatelessWidget {
               Text(
                 label,
                 style: theme.textTheme.bodyMedium?.copyWith(
-                  fontSize: 12,
+                  fontSize: 13,
                   fontWeight: FontWeight.w700,
-                  color: accentColor.withValues(alpha: 0.85),
+                  color: accentColor.withOpacity(0.95),
+                  height: 1.35,
                 ),
               ),
             ],

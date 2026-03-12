@@ -5,16 +5,20 @@ import 'package:provider/provider.dart';
 import 'providers/user_provider.dart';
 import 'theme/app_theme.dart';
 
+import 'firebase_options.dart';
+import 'package:firebase_core/firebase_core.dart';
+
 // Screens
 import 'screens/onboarding_screen.dart';
 import 'screens/main_shell.dart';
 import 'screens/login_screen.dart';
 import 'screens/signup_screen.dart';
+import 'screens/financial_setup_screen.dart';
 import 'screens/income_screen.dart';
 import 'screens/spent_screen.dart';
 import 'screens/saved_screen.dart';
 
-void main() async {
+/*void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   await SystemChrome.setPreferredOrientations([
@@ -24,15 +28,25 @@ void main() async {
   SystemChrome.setSystemUIOverlayStyle(
     const SystemUiOverlayStyle(
       statusBarColor: Colors.transparent,
-      statusBarIconBrightness: Brightness.dark,
-      statusBarBrightness: Brightness.light,
-      systemNavigationBarColor: Colors.white,
-      systemNavigationBarIconBrightness: Brightness.dark,
+      statusBarIconBrightness: Brightness.light,
+      statusBarBrightness: Brightness.dark,
+      systemNavigationBarColor: Color(0xFF1E8A5C),
+      systemNavigationBarIconBrightness: Brightness.light,
+      systemNavigationBarDividerColor: Color(0xFF1E8A5C),
     ),
   );
 
   runApp(const AppProviders());
 }
+*/
+
+void main() async {
+    WidgetsFlutterBinding.ensureInitialized();
+    await Firebase.initializeApp();
+    runApp(const AppProviders());
+  }
+
+
 
 class AppProviders extends StatelessWidget {
   const AppProviders({super.key});
@@ -104,10 +118,22 @@ class AppEntry extends StatelessWidget {
   Widget build(BuildContext context) {
     return Consumer<UserProvider>(
       builder: (context, userProv, _) {
-        if (userProv.isLoggedIn) {
-          return const MainShell();
+        if (!userProv.isLoggedIn) {
+          return const OnboardingScreen();
         }
-        return const OnboardingScreen();
+
+        final hasFinancialProfile = userProv.income > 0 ||
+            userProv.expenses > 0 ||
+            userProv.savingsGoal > 0 ||
+            userProv.bnplCommitments > 0;
+
+        if (!hasFinancialProfile) {
+          return FinancialSetupScreen(
+            userName: userProv.userName.isEmpty ? 'User' : userProv.userName,
+          );
+        }
+
+        return const MainShell();
       },
     );
   }
