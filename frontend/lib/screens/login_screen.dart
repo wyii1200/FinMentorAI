@@ -99,7 +99,6 @@ class _LoginScreenState extends State<LoginScreen>
     }
   }
 
-
   String? _validateEmail(String? value) {
     final text = value?.trim() ?? '';
     if (text.isEmpty) return 'Email is required';
