@@ -224,7 +224,7 @@ class _MainShellState extends State<MainShell> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'FinMentor',
+            'FinMentorAI',
             style: theme.textTheme.titleLarge?.copyWith(
               fontWeight: FontWeight.w800,
               color: AppColors.textPrimary,
