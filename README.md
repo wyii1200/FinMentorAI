@@ -60,6 +60,9 @@ Measures your "Financial Runway"—how many months you can sustain your current 
    ```bash
     flutter run
 
+## Demo Video Link
+https://youtu.be/Aj_NBdZVnos
+
 ## 🤖 AI Disclosure
 
 This project concept includes an AI-powered financial advisor component. However, within the hackathon prototype, the analysis and simulations are implemented using rule-based logic and mathematical calculations (such as spending ratios, savings projections, and compound interest formulas) rather than a deployed AI model.
