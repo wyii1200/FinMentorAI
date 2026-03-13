@@ -1,72 +1,167 @@
-# FinMentor AI
+# 💰 FinMentor AI
 
-FinMentor AI is a financial wellness platform designed to help users navigate their personal finances with the power of AI. It provides deep insights into spending habits, evaluates the risks of Buy Now, Pay Later (BNPL) schemes, simulates future financial scenarios, and calculates financial resilience.
+FinMentor AI is a financial wellness platform designed to help users navigate their personal finances with the power of AI. It provides insights into spending habits, evaluates the risks of Buy Now Pay Later (BNPL) schemes, simulates future financial scenarios, and calculates financial resilience.
+
+---
 
 ## 🚀 Key Features
 
 ### 1. AI Spending Analyzer
-Analyzes your monthly income, fixed expenses, and BNPL commitments. It provides a detailed breakdown of your financial health and uses AI to offer personalized advice on how to optimize your spending.
+Analyzes monthly income, fixed expenses, and BNPL commitments to provide a breakdown of financial health and suggestions for optimizing spending.
 
-### 2. "Future You" Financial Simulator
-Visualizes the long-term impact of your financial decisions. Whether it's taking on new debt or increasing your savings, this tool projects your financial future over months and years, accompanied by an AI-driven narrative.
+### 2. Future You Financial Simulator
+Projects how financial decisions today affect the future. Users can simulate scenarios such as increasing savings, taking new debt, or changing spending habits.
 
 ### 3. BNPL & Loan Risk Explainer
-Demystifies the true cost of "zero-interest" loans and BNPL purchases. It calculates total overpayment, late fees, and grand totals, while AI explains the specific risks associated with your purchase.
+Helps users understand the hidden costs behind Buy Now Pay Later (BNPL) services and loans.
+
+The system calculates:
+- Total repayment amount
+- Possible late fees
+- Overall financial impact
+
+It also provides simplified explanations of financial risks.
 
 ### 4. Financial Resilience Score
-Measures your "Financial Runway"—how many months you can sustain your current lifestyle if your income stops today. It provides a Resilience Level (e.g., Vulnerable, Solid, Fortress) and an AI-generated action plan to improve your stability.
+Measures your **Financial Runway** — how many months you can sustain your lifestyle if income stops.
 
-## 🛠️ Tech Stack
+Resilience levels include:
+- Vulnerable
+- Moderate
+- Solid
+- Fortress
 
-- **Frontend:** Flutter (Dart)
-- **Backend:** Node.js (Firebase Cloud Functions)
-- **Database:** Google Cloud Firestore
-- **Authentication:** Firebase Authentication
+The system also provides suggestions to improve financial stability.
 
-### How to Run
+---
 
-1. **Clone the repository:**
-   ```bash
-   git clone <repository-url>
-   cd FinMentorAI
-   ```
+# 🛠 Tech Stack
 
-2. Install Frontend Dependencies:
-   ```bash
-    flutter pub get
+### Frontend
+- Flutter (Dart)
 
-3. Enable Developer Mode / Tools
+### Backend
+- Node.js (Firebase Cloud Functions)
 
-   **Windows**
-   - Open Settings → System → Advanced
-   - Scroll to For developers section
-   - Toggle Developer Mode to On
-   - Allows installation of apps from any source and enables debugging
+### Database
+- Google Cloud Firestore
 
-   **macOS**
-   - Open System Settings → Privacy & Security
-   - Scroll to Developer Tools
-   - Allow Flutter and your IDE to run apps and debugging
-   - Ensure Terminal/IDE has permissions for local app execution
+### Authentication
+- Firebase Authentication
 
-   **Linux**
-   - Ensure Flutter SDK is installed and added to PATH
-   - Install required packages (Ubuntu example):
-     ```bash
-      sudo apt-get install clang cmake ninja-build pkg-config libgtk-3-dev
-   - Ensure your user can run apps and access local devices
+---
 
-4. Run Flutter App
-   ```bash
-    flutter run
+# ▶️ Running the Project
 
-## Demo Video Link
+## 1. Clone the Repository
+
+```bash
+git clone <repository-url>
+cd FinMentorAI
+```
+
+---
+
+## 2. Install Flutter Dependencies
+
+```bash
+flutter pub get
+```
+
+---
+
+## 3. Run the Application
+
+```bash
+flutter run
+```
+
+After running the command, Flutter will prompt you to select a device.
+
+Example:
+
+```
+1 - Windows
+2 - Chrome
+3 - Edge
+```
+
+### Device Options
+
+**Chrome**
+- Recommended for quick testing
+- Runs the application as a web app
+
+**Mobile Emulator / Virtual Device**
+- Best option for testing the mobile experience
+
+**Windows**
+- Runs the application as a desktop app
+
+---
+
+# ⚙️ Developer Mode / System Requirements
+
+### Windows (for Desktop Development)
+
+1. Open **Settings**
+2. Navigate to **System → For Developers**
+3. Enable **Developer Mode**
+
+This allows installation and debugging of local applications.
+
+---
+
+### macOS (for Development & Debugging)
+
+1. Open **System Settings**
+2. Go to **Privacy & Security**
+3. Scroll to **Developer Tools**
+4. Allow your **Terminal / IDE (VS Code, Android Studio)** to run and debug applications
+
+Ensure Flutter and your IDE have permission to run local applications.
+
+---
+
+### Linux (for Desktop Development)
+
+Ensure Flutter SDK is installed and added to your system `PATH`.
+
+For Ubuntu-based systems install required dependencies:
+
+```bash
+sudo apt-get update
+sudo apt-get install clang cmake ninja-build pkg-config libgtk-3-dev
+```
+
+This allows Flutter to build and run Linux desktop applications.
+
+---
+
+# 🎥 Demo Video
+
 https://youtu.be/Aj_NBdZVnos
 
-## 🤖 AI Disclosure
+---
 
-This project concept includes an AI-powered financial advisor component. However, within the hackathon prototype, the analysis and simulations are implemented using rule-based logic and mathematical calculations (such as spending ratios, savings projections, and compound interest formulas) rather than a deployed AI model.
+# 🤖 AI Disclosure
 
-AI tools such as ChatGPT and Gemini were used only for ideation, technical guidance, and documentation assistance during development. No external AI APIs or machine learning models are currently integrated into the application.
+FinMentor AI is designed as an AI-powered financial advisor concept.
 
-Future versions of the project may integrate large language models to generate personalized financial explanations and advice.
+However, within this hackathon prototype, the analysis and simulations are implemented using **rule-based logic and financial calculations** rather than a deployed AI model.
+
+Examples include:
+
+- Spending ratio analysis
+- Savings projections
+- Financial resilience scoring
+
+AI tools such as **ChatGPT** and **Gemini** were used during development for:
+
+- Ideation
+- Technical guidance
+- Documentation assistance
+
+No external AI APIs or machine learning models are currently integrated into the application.
+
+Future versions may integrate **large language models (LLMs)** to generate personalized financial explanations and advice.
